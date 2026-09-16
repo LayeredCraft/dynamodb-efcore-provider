@@ -165,7 +165,9 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
 
             return DynamoGeneratedQueryRuntime.CreateUpdateTemplate(
                 [.. _precompiledSegments!],
-                updateExpression.SelectExpression.TableName);
+                updateExpression.SelectExpression.TableName,
+                null,
+                updateExpression.SelectExpression.QueryEntityTypeName);
         }
         finally
         {
@@ -188,7 +190,9 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
 
             return DynamoGeneratedQueryRuntime.CreateUpdateTemplate(
                 [.. _precompiledSegments!],
-                deleteExpression.SelectExpression.TableName);
+                deleteExpression.SelectExpression.TableName,
+                null,
+                deleteExpression.SelectExpression.QueryEntityTypeName);
         }
         finally
         {

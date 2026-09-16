@@ -37,6 +37,40 @@ public class PrecompiledQueryTemplateTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Runtime_model_table_name_replaces_generated_from_clause()
+    {
+        using var context = new ConverterContext();
+        var generatedTemplate =
+            new DynamoQuerySqlGenerator().GeneratePrecompiledTemplate(
+                CreateSelect(new DynamoTypeMapping(typeof(string))));
+        var template = DynamoGeneratedQueryRuntime.CreateQueryTemplate(
+            [.. generatedTemplate.Segments],
+            generatedTemplate.TableName,
+            context.Model,
+            generatedTemplate.QueryEntityTypeName,
+            generatedTemplate.IndexName,
+            generatedTemplate.IsGlobalSecondaryIndex,
+            generatedTemplate.IsScanLike,
+            generatedTemplate.ScanMessage,
+            generatedTemplate.ScanAllowed,
+            generatedTemplate.Limit,
+            generatedTemplate.LimitParameterName,
+            generatedTemplate.SeedNextToken,
+            generatedTemplate.SeedNextTokenParameterName,
+            generatedTemplate.ConsistentRead,
+            generatedTemplate.ConsistentReadParameterName,
+            generatedTemplate.HasUserLimit,
+            generatedTemplate.IsFirstTerminal,
+            generatedTemplate.IsSingleTerminal);
+
+        template
+            .Render(new Dictionary<string, object?>())
+            .Sql
+            .Should()
+            .Be("SELECT \"pk\"\nFROM \"RuntimeItems\"");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Collection_parameter_expands_and_empty_collection_uses_false_predicate()
     {
         var mapping = new DynamoTypeMapping(typeof(string));
@@ -307,6 +341,7 @@ public class PrecompiledQueryTemplateTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ConvertedEntity>(entity =>
             {
+                entity.ToTable("RuntimeItems");
                 entity.HasPartitionKey(item => item.Pk);
                 entity.Property(item => item.Status).HasConversion<string>();
             });

@@ -351,14 +351,7 @@ public static class DynamoGeneratedQueryRuntime
         bool firstTerminal,
         bool singleTerminal)
     {
-        var runtimeTableName = model is not null
-            && queryEntityTypeName is not null
-            && model
-                .FindEntityType(queryEntityTypeName)
-                ?.FindAnnotation(DynamoAnnotationNames.TableName)
-                ?.Value is string configuredTableName
-                ? configuredTableName
-                : tableName;
+        var runtimeTableName = ResolveRuntimeTableName(tableName, model, queryEntityTypeName);
 
         return new(
             segments,
@@ -415,14 +408,22 @@ public static class DynamoGeneratedQueryRuntime
     public sealed class UpdateTemplate
     {
         private readonly CommandSegment[] _segments;
+        private readonly string _generatedTableName;
 
-        internal UpdateTemplate(CommandSegment[] segments, string tableName)
+        internal UpdateTemplate(
+            CommandSegment[] segments,
+            string generatedTableName,
+            string tableName,
+            string? queryEntityTypeName)
         {
             _segments = segments;
+            _generatedTableName = generatedTableName;
             TableName = tableName;
+            QueryEntityTypeName = queryEntityTypeName;
         }
 
         internal string TableName { get; }
+        internal string? QueryEntityTypeName { get; }
 
         internal IReadOnlyList<CommandSegment> Segments => _segments;
 
@@ -435,6 +436,17 @@ public static class DynamoGeneratedQueryRuntime
             RenderSegments(_segments, parameterValues, sql, parameters);
 
             var statement = sql.ToString();
+            if (!string.Equals(_generatedTableName, TableName, StringComparison.Ordinal))
+                statement = statement
+                    .Replace(
+                        $"UPDATE \"{_generatedTableName}\"",
+                        $"UPDATE \"{TableName}\"",
+                        StringComparison.Ordinal)
+                    .Replace(
+                        $"DELETE FROM \"{_generatedTableName}\"",
+                        $"DELETE FROM \"{TableName}\"",
+                        StringComparison.Ordinal);
+
             DynamoPartiQlStatementValidator.ValidateStatementLength(statement, "write");
 
             return new DynamoPartiQlQuery(statement, parameters);
@@ -442,8 +454,29 @@ public static class DynamoGeneratedQueryRuntime
     }
 
     /// <summary>Creates the runtime form of a generated ExecuteUpdate template.</summary>
-    public static UpdateTemplate CreateUpdateTemplate(CommandSegment[] segments, string tableName)
-        => new(segments, tableName);
+    public static UpdateTemplate CreateUpdateTemplate(
+        CommandSegment[] segments,
+        string tableName,
+        IModel? model,
+        string? queryEntityTypeName)
+        => new(
+            segments,
+            tableName,
+            ResolveRuntimeTableName(tableName, model, queryEntityTypeName),
+            queryEntityTypeName);
+
+    private static string ResolveRuntimeTableName(
+        string tableName,
+        IModel? model,
+        string? queryEntityTypeName)
+        => model is not null
+            && queryEntityTypeName is not null
+            && model
+                .FindEntityType(queryEntityTypeName)
+                ?.FindAnnotation(DynamoAnnotationNames.TableName)
+                ?.Value is string configuredTableName
+                ? configuredTableName
+                : tableName;
 
     /// <summary>Creates a generated asynchronous ExecuteUpdate executor.</summary>
     public static Task<int> CreateUpdateExecutorAsync(

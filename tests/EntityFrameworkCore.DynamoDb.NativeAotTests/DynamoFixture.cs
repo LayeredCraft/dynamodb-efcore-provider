@@ -122,6 +122,9 @@ public sealed class DynamoFixture : IAsyncLifetime
         if (token is null)
             return null;
 
+        // DynamoDB Local adds a per-request creation timestamp to opaque tokens, so tokens for
+        // the same logical position are not byte-identical. Compare the embedded continuation key
+        // instead. This format is specific to DynamoDB Local, not an AWS-documented contract.
         var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(token));
         using var document = System.Text.Json.JsonDocument.Parse(json);
         return document.RootElement.GetProperty("opIndexToExclusiveNextKey").GetRawText();

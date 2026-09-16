@@ -1,3 +1,4 @@
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 
@@ -22,8 +23,8 @@ public sealed class AotRuntimeContext : DbContext
             throw new InvalidOperationException(
                 "The generated runtime model is missing the item entity type.");
 
-        entityType.SetAnnotation("Dynamo:TableName", tableName);
-        entityType.SetRuntimeAnnotation("Dynamo:TableGroupName", tableName);
+        entityType.SetAnnotation(DynamoAnnotationNames.TableName, tableName);
+        entityType.SetRuntimeAnnotation(DynamoAnnotationNames.TableGroupName, tableName);
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

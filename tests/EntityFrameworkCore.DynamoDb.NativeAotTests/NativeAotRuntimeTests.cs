@@ -1,3 +1,4 @@
+using Amazon.DynamoDBv2.Model;
 using Xunit;
 
 namespace EntityFrameworkCore.DynamoDb.NativeAotTests;
@@ -174,16 +175,44 @@ public sealed class NativeAotRuntimeTests(DynamoFixture fixture)
     }
 
     [Fact(Timeout = Timeout)]
-    public async Task Execute_delete_deletes_matching_entity()
+    public async Task Precompiled_execute_delete_uses_runtime_configured_table_name()
     {
-        await fixture.ResetAndSeedAsync(TestContext.Current.CancellationToken);
-        var deleted = await AotRuntimeQueries.ExecuteDeleteAsync();
-        if (deleted != 1)
-            throw new InvalidOperationException($"Expected one deleted item, received {deleted}.");
+        var previousTableName =
+            Environment.GetEnvironmentVariable("DYNAMO_AOT_TEST_RUNTIME_TABLE_NAME");
+        try
+        {
+            Environment.SetEnvironmentVariable(
+                "DYNAMO_AOT_TEST_RUNTIME_TABLE_NAME",
+                AotRuntimeContext.RuntimeTableName);
+            AotRuntimeContext.ConfigureRuntimeTableName(AotRuntimeContext.RuntimeTableName);
+            await fixture.ResetAndSeedAsync(TestContext.Current.CancellationToken);
 
-        var item = await AotRuntimeQueries.LoadByKeyAsync("tenant-null", "sk-null");
-        if (item is not null)
-            throw new InvalidOperationException("Expected the deleted item to be absent.");
+            var deleted = await AotRuntimeQueries.ExecuteDeleteAsync();
+            if (deleted != 1)
+                throw new InvalidOperationException(
+                    $"Expected one deleted item, received {deleted}.");
+
+            var response = await fixture.Client.GetItemAsync(
+                new GetItemRequest
+                {
+                    TableName = AotRuntimeContext.RuntimeTableName,
+                    Key = new Dictionary<string, AttributeValue>
+                    {
+                        ["pk"] = new() { S = "tenant-null" },
+                        ["sk"] = new() { S = "sk-null" }
+                    }
+                },
+                TestContext.Current.CancellationToken);
+            if (response.Item is { Count: > 0 })
+                throw new InvalidOperationException("Expected the deleted item to be absent.");
+        }
+        finally
+        {
+            AotRuntimeContext.ConfigureRuntimeTableName(AotRuntimeContext.DesignTimeTableName);
+            Environment.SetEnvironmentVariable(
+                "DYNAMO_AOT_TEST_RUNTIME_TABLE_NAME",
+                previousTableName);
+        }
     }
 
     [Fact(Timeout = Timeout)]
