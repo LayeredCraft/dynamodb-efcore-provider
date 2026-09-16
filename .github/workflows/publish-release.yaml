@@ -58,8 +58,8 @@ jobs:
       - name: Test
         run: dotnet test EntityFrameworkCore.DynamoDb.slnx --configuration Release --no-build
 
-      - name: NativeAOT smoke validation
-        run: scripts/run-nativeaot-smoke.sh Release linux-x64 "${{ needs.resolve.outputs.target_framework }}"
+      - name: NativeAOT test validation
+        run: scripts/run-nativeaot-tests.sh Release linux-x64 "${{ needs.resolve.outputs.target_framework }}"
 
       - name: Pack
         run: dotnet pack src/EntityFrameworkCore.DynamoDb/EntityFrameworkCore.DynamoDb.csproj --configuration Release --no-build -o artifacts -p:Version=${{ needs.resolve.outputs.version }} -p:InformationalVersion=${{ needs.resolve.outputs.version }}

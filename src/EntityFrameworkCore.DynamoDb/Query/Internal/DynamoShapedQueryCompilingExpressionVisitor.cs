@@ -332,6 +332,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             Type.EmptyTypes,
             NewArrayInit(typeof(DynamoGeneratedQueryRuntime.CommandSegment), segments),
             Constant(template.TableName),
+            Property(
+                Property(context, nameof(MaterializerLiftableConstantContext.Dependencies)),
+                nameof(ShapedQueryCompilingExpressionVisitorDependencies.Model)),
+            Constant(template.QueryEntityTypeName, typeof(string)),
             Constant(template.IndexName, typeof(string)),
             Constant(template.IsGlobalSecondaryIndex),
             Constant(template.IsScanLike),

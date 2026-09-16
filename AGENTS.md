@@ -53,9 +53,9 @@ execution.
   or inspect `AssertSql` failure messages to see captured statements.
 - Docs: `task docs:build`
 
-## NativeAOT Smoke Test
+## NativeAOT Runtime Tests
 
-- The NativeAOT smoke app (`testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke`) and its CI leg
+- The NativeAOT test project (`tests/EntityFrameworkCore.DynamoDb.NativeAotTests`) and its CI leg
   (`.github/workflows/pr-build.yaml` `native-aot` job) are CI-validated for **both** EF10
   (`net10.0`) and EF11 (`net11.0`).
 - NativeAOT publish/query precompilation requires the project to evaluate as genuinely
@@ -63,10 +63,9 @@ execution.
   own NativeAOT tooling loses such external build context internally — see
   `docs/internal/ef10-ef11-build-configuration-strategy-research.md`). Generate the physical,
   gitignored override first: `scripts/write-target-framework-override.sh <net10.0|net11.0>`; clear
-  it afterward with `scripts/write-target-framework-override.sh --clear`. `task test:aot-publish
-  FRAMEWORK=net10.0`/`net11.0` does both automatically, including on failure.
-- Full details: `testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke/AGENTS.md`. Read it before
-  touching the smoke app or the `native-aot` CI job.
+  it afterward with `scripts/write-target-framework-override.sh --clear`. `task test:aot-publish FRAMEWORK=net10.0`/`net11.0` does both automatically, including on failure.
+- The published runner is `scripts/run-nativeaot-tests.sh`; it owns publishing and warning gating.
+  The xUnit assembly fixture owns DynamoDB Local startup and cleanup.
 - `task test:aot-generation` and the full test suites run on both EF10 and EF11 without needing
   the override.
 

@@ -149,7 +149,7 @@ tasks:
       - bash {{.ROOT_DIR}}/scripts/write-target-framework-override.sh --clear
 
   test:aot-publish:
-    desc: Publish, gate warnings, and run NativeAOT smoke app for CONFIG/FRAMEWORK (default Release/net10.0)
+    desc: Publish, gate warnings, and run NativeAOT tests for CONFIG/FRAMEWORK (default Release/net10.0)
     silent: true
     vars:
       CONFIG: '{{.CONFIG | default "Release"}}'
@@ -160,7 +160,7 @@ tasks:
       - defer: { task: aot:clear-override }
       - task: aot:write-override
         vars: { FRAMEWORK: '{{.FRAMEWORK}}' }
-      - bash {{.ROOT_DIR}}/scripts/run-nativeaot-smoke.sh "{{.CONFIG}}" "{{.RID}}" "{{.FRAMEWORK}}"
+      - bash {{.ROOT_DIR}}/scripts/run-nativeaot-tests.sh "{{.CONFIG}}" "{{.RID}}" "{{.FRAMEWORK}}"
 
   docs:build:
     desc: Build docs site with Zensical

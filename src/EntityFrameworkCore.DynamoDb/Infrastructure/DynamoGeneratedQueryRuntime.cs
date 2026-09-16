@@ -88,9 +88,11 @@ public static class DynamoGeneratedQueryRuntime
     public sealed class QueryTemplate
     {
         private readonly CommandSegment[] _segments;
+        private readonly string _generatedTableName;
 
         internal QueryTemplate(
             CommandSegment[] segments,
+            string generatedTableName,
             string tableName,
             string? indexName,
             bool isGlobalSecondaryIndex,
@@ -105,9 +107,11 @@ public static class DynamoGeneratedQueryRuntime
             string? consistentReadParameterName,
             bool hasUserLimit,
             bool isFirstTerminal,
-            bool isSingleTerminal)
+            bool isSingleTerminal,
+            string? queryEntityTypeName)
         {
             _segments = segments;
+            _generatedTableName = generatedTableName;
             TableName = tableName;
             IndexName = indexName;
             IsGlobalSecondaryIndex = isGlobalSecondaryIndex;
@@ -123,6 +127,7 @@ public static class DynamoGeneratedQueryRuntime
             HasUserLimit = hasUserLimit;
             IsFirstTerminal = isFirstTerminal;
             IsSingleTerminal = isSingleTerminal;
+            QueryEntityTypeName = queryEntityTypeName;
         }
 
         internal string TableName { get; }
@@ -140,6 +145,7 @@ public static class DynamoGeneratedQueryRuntime
         internal bool HasUserLimit { get; }
         internal bool IsFirstTerminal { get; }
         internal bool IsSingleTerminal { get; }
+        internal string? QueryEntityTypeName { get; }
         internal IReadOnlyList<CommandSegment> Segments => _segments;
 
         internal DynamoPartiQlQuery Render(IReadOnlyDictionary<string, object?> parameterValues)
@@ -149,7 +155,14 @@ public static class DynamoGeneratedQueryRuntime
 
             RenderSegments(_segments, parameterValues, sql, parameters);
 
-            return new DynamoPartiQlQuery(sql.ToString(), parameters);
+            var statement = sql.ToString();
+            if (!string.Equals(_generatedTableName, TableName, StringComparison.Ordinal))
+                statement = statement.Replace(
+                    $"FROM \"{_generatedTableName}\"",
+                    $"FROM \"{TableName}\"",
+                    StringComparison.Ordinal);
+
+            return new DynamoPartiQlQuery(statement, parameters);
         }
 
         internal SelectExpression CreateExecutionExpression()
@@ -321,6 +334,8 @@ public static class DynamoGeneratedQueryRuntime
     public static QueryTemplate CreateQueryTemplate(
         CommandSegment[] segments,
         string tableName,
+        IModel? model,
+        string? queryEntityTypeName,
         string? indexName,
         bool globalSecondaryIndex,
         bool scanLike,
@@ -335,9 +350,20 @@ public static class DynamoGeneratedQueryRuntime
         bool userLimit,
         bool firstTerminal,
         bool singleTerminal)
-        => new(
+    {
+        var runtimeTableName = model is not null
+            && queryEntityTypeName is not null
+            && model
+                .FindEntityType(queryEntityTypeName)
+                ?.FindAnnotation(DynamoAnnotationNames.TableName)
+                ?.Value is string configuredTableName
+                ? configuredTableName
+                : tableName;
+
+        return new(
             segments,
             tableName,
+            runtimeTableName,
             indexName,
             globalSecondaryIndex,
             scanLike,
@@ -351,7 +377,9 @@ public static class DynamoGeneratedQueryRuntime
             consistentReadParameterName,
             userLimit,
             firstTerminal,
-            singleTerminal);
+            singleTerminal,
+            queryEntityTypeName);
+    }
 
     /// <summary>Creates a generated asynchronous query enumerable.</summary>
     public static IAsyncEnumerable<T> CreateAsyncQueryingEnumerable<T>(

@@ -25,7 +25,7 @@ jobs:
       runCdk: false
 
   native-aot:
-    name: native AOT smoke (${{ matrix.targetFramework }})
+    name: native AOT tests (${{ matrix.targetFramework }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -43,9 +43,9 @@ jobs:
       - name: Write single-TFM override
         shell: bash
         run: scripts/write-target-framework-override.sh "${{ matrix.targetFramework }}"
-      - name: Publish, gate, and run NativeAOT smoke
+      - name: Publish, gate, and run NativeAOT tests
         shell: bash
-        run: scripts/run-nativeaot-smoke.sh Release linux-x64 "${{ matrix.targetFramework }}"
+        run: scripts/run-nativeaot-tests.sh Release linux-x64 "${{ matrix.targetFramework }}"
       - name: Clear single-TFM override
         if: always()
         shell: bash

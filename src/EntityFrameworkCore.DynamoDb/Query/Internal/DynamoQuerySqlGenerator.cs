@@ -74,6 +74,8 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
             return DynamoGeneratedQueryRuntime.CreateQueryTemplate(
                 [.. _precompiledSegments],
                 selectExpression.TableName,
+                null,
+                selectExpression.QueryEntityTypeName,
                 selectExpression.IndexName,
                 selectExpression.IndexSourceKind == DynamoIndexSourceKind.GlobalSecondaryIndex,
                 selectExpression.ScanQueryClassification?.IsScanLike == true,
