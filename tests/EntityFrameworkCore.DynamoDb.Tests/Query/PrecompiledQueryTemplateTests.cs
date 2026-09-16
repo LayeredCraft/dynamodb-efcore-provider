@@ -71,6 +71,46 @@ public class PrecompiledQueryTemplateTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Runtime_model_table_name_resolves_mapped_root_for_derived_entity()
+    {
+        using var context = new InheritanceContext();
+        var select = new SelectExpression("DesignTimeItems", typeof(DerivedEntity).FullName);
+        select.AddToProjection(
+            new SqlPropertyExpression(
+                "pk",
+                typeof(string),
+                new DynamoTypeMapping(typeof(string)),
+                true),
+            "pk");
+        var generatedTemplate = new DynamoQuerySqlGenerator().GeneratePrecompiledTemplate(select);
+        var template = DynamoGeneratedQueryRuntime.CreateQueryTemplate(
+            [.. generatedTemplate.Segments],
+            generatedTemplate.TableName,
+            context.Model,
+            generatedTemplate.QueryEntityTypeName,
+            generatedTemplate.IndexName,
+            generatedTemplate.IsGlobalSecondaryIndex,
+            generatedTemplate.IsScanLike,
+            generatedTemplate.ScanMessage,
+            generatedTemplate.ScanAllowed,
+            generatedTemplate.Limit,
+            generatedTemplate.LimitParameterName,
+            generatedTemplate.SeedNextToken,
+            generatedTemplate.SeedNextTokenParameterName,
+            generatedTemplate.ConsistentRead,
+            generatedTemplate.ConsistentReadParameterName,
+            generatedTemplate.HasUserLimit,
+            generatedTemplate.IsFirstTerminal,
+            generatedTemplate.IsSingleTerminal);
+
+        template
+            .Render(new Dictionary<string, object?>())
+            .Sql
+            .Should()
+            .Be("SELECT \"pk\"\nFROM \"RuntimeItems\"");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Collection_parameter_expands_and_empty_collection_uses_false_predicate()
     {
         var mapping = new DynamoTypeMapping(typeof(string));
@@ -347,11 +387,37 @@ public class PrecompiledQueryTemplateTests
             });
     }
 
+    private sealed class InheritanceContext : DbContext
+    {
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder
+                .UseDynamo()
+                .ConfigureWarnings(warnings
+                    => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BaseEntity>(entity =>
+            {
+                entity.ToTable("RuntimeItems");
+                entity.HasPartitionKey(item => item.Pk);
+            });
+            modelBuilder.Entity<DerivedEntity>();
+        }
+    }
+
     private sealed class ConvertedEntity
     {
         public string Pk { get; set; } = null!;
         public ConvertedStatus Status { get; set; }
     }
+
+    private class BaseEntity
+    {
+        public string Pk { get; set; } = null!;
+    }
+
+    private sealed class DerivedEntity : BaseEntity { }
 
     private enum ConvertedStatus
     {

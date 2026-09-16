@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.Query.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
@@ -471,11 +472,8 @@ public static class DynamoGeneratedQueryRuntime
         string? queryEntityTypeName)
         => model is not null
             && queryEntityTypeName is not null
-            && model
-                .FindEntityType(queryEntityTypeName)
-                ?.FindAnnotation(DynamoAnnotationNames.TableName)
-                ?.Value is string configuredTableName
-                ? configuredTableName
+            && model.FindEntityType(queryEntityTypeName) is { } entityType
+                ? entityType.GetTableGroupName()
                 : tableName;
 
     /// <summary>Creates a generated asynchronous ExecuteUpdate executor.</summary>
