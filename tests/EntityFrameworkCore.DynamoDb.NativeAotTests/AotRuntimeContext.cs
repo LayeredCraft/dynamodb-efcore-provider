@@ -10,8 +10,18 @@ public sealed class AotRuntimeContext : DbContext
     internal const string RuntimeTableName = "AotRuntimeConfiguredItems-runtime";
 
     internal static string TableName
-        => Environment.GetEnvironmentVariable("DYNAMO_AOT_TEST_RUNTIME_TABLE_NAME")
-            ?? DesignTimeTableName;
+    {
+        get
+        {
+            using var context = new AotRuntimeContext();
+            return context
+                    .Model
+                    .FindEntityType(typeof(AotRuntimeItem))
+                    ?.FindAnnotation(DynamoAnnotationNames.TableName)
+                    ?.Value as string
+                ?? DesignTimeTableName;
+        }
+    }
 
     public DbSet<AotRuntimeItem> Items => Set<AotRuntimeItem>();
 
@@ -40,7 +50,7 @@ public sealed class AotRuntimeContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<AotRuntimeItem>(entity =>
         {
-            DynamoEntityTypeBuilderExtensions.ToTable(entity, TableName);
+            DynamoEntityTypeBuilderExtensions.ToTable(entity, DesignTimeTableName);
             entity.HasPartitionKey(item => item.Pk);
             DynamoEntityTypeBuilderExtensions.HasSortKey(entity, item => item.Sk);
             entity.Property(item => item.Status).HasConversion<string>();

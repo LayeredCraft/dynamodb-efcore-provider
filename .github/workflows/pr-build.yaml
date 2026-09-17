@@ -47,7 +47,9 @@ jobs:
         shell: bash
         run: |
           dotnet restore tests/EntityFrameworkCore.DynamoDb.NativeAotTests/EntityFrameworkCore.DynamoDb.NativeAotTests.csproj -p:TargetFrameworks="${{ matrix.targetFramework }}" --runtime linux-x64
-          dotnet publish tests/EntityFrameworkCore.DynamoDb.NativeAotTests/EntityFrameworkCore.DynamoDb.NativeAotTests.csproj --configuration Release --framework "${{ matrix.targetFramework }}" --runtime linux-x64 --no-restore --output artifacts/nativeaot-tests
+          set -o pipefail
+          dotnet publish tests/EntityFrameworkCore.DynamoDb.NativeAotTests/EntityFrameworkCore.DynamoDb.NativeAotTests.csproj --configuration Release --framework "${{ matrix.targetFramework }}" --runtime linux-x64 --no-restore --output artifacts/nativeaot-tests 2>&1 | tee artifacts/nativeaot-tests.log
+          bash scripts/verify-nativeaot-warnings.sh artifacts/nativeaot-tests.log
           artifacts/nativeaot-tests/EntityFrameworkCore.DynamoDb.NativeAotTests
       - name: Clear single-TFM override
         if: always()

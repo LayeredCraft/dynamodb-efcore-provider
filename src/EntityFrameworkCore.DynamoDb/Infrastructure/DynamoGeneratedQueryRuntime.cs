@@ -93,8 +93,8 @@ public static class DynamoGeneratedQueryRuntime
 
         internal QueryTemplate(
             CommandSegment[] segments,
-            string generatedTableName,
-            string tableName,
+            string bakedTableName,
+            string resolvedTableName,
             string? indexName,
             bool isGlobalSecondaryIndex,
             bool isScanLike,
@@ -112,8 +112,8 @@ public static class DynamoGeneratedQueryRuntime
             string? queryEntityTypeName)
         {
             _segments = segments;
-            _generatedTableName = generatedTableName;
-            TableName = tableName;
+            _generatedTableName = bakedTableName;
+            TableName = resolvedTableName;
             IndexName = indexName;
             IsGlobalSecondaryIndex = isGlobalSecondaryIndex;
             IsScanLike = isScanLike;

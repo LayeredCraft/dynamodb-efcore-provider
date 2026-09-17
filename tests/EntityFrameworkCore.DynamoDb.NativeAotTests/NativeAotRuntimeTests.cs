@@ -177,13 +177,8 @@ public sealed class NativeAotRuntimeTests(DynamoFixture fixture)
     [Fact(Timeout = Timeout)]
     public async Task Precompiled_execute_delete_uses_runtime_configured_table_name()
     {
-        var previousTableName =
-            Environment.GetEnvironmentVariable("DYNAMO_AOT_TEST_RUNTIME_TABLE_NAME");
         try
         {
-            Environment.SetEnvironmentVariable(
-                "DYNAMO_AOT_TEST_RUNTIME_TABLE_NAME",
-                AotRuntimeContext.RuntimeTableName);
             AotRuntimeContext.ConfigureRuntimeTableName(AotRuntimeContext.RuntimeTableName);
             await fixture.ResetAndSeedAsync(TestContext.Current.CancellationToken);
 
@@ -209,22 +204,14 @@ public sealed class NativeAotRuntimeTests(DynamoFixture fixture)
         finally
         {
             AotRuntimeContext.ConfigureRuntimeTableName(AotRuntimeContext.DesignTimeTableName);
-            Environment.SetEnvironmentVariable(
-                "DYNAMO_AOT_TEST_RUNTIME_TABLE_NAME",
-                previousTableName);
         }
     }
 
     [Fact(Timeout = Timeout)]
     public async Task Precompiled_query_uses_runtime_configured_table_name()
     {
-        var previousTableName =
-            Environment.GetEnvironmentVariable("DYNAMO_AOT_TEST_RUNTIME_TABLE_NAME");
         try
         {
-            Environment.SetEnvironmentVariable(
-                "DYNAMO_AOT_TEST_RUNTIME_TABLE_NAME",
-                AotRuntimeContext.RuntimeTableName);
             AotRuntimeContext.ConfigureRuntimeTableName(AotRuntimeContext.RuntimeTableName);
             await fixture.ResetAndSeedAsync(TestContext.Current.CancellationToken);
             await fixture.SeedRuntimeMappedItemAsync(TestContext.Current.CancellationToken);
@@ -237,9 +224,6 @@ public sealed class NativeAotRuntimeTests(DynamoFixture fixture)
         finally
         {
             AotRuntimeContext.ConfigureRuntimeTableName(AotRuntimeContext.DesignTimeTableName);
-            Environment.SetEnvironmentVariable(
-                "DYNAMO_AOT_TEST_RUNTIME_TABLE_NAME",
-                previousTableName);
         }
     }
 
