@@ -61,6 +61,7 @@ jobs:
       - name: NativeAOT test validation
         run: |
           dotnet restore tests/EntityFrameworkCore.DynamoDb.NativeAotTests/EntityFrameworkCore.DynamoDb.NativeAotTests.csproj -p:TargetFrameworks="${{ needs.resolve.outputs.target_framework }}" --runtime linux-x64
+          mkdir -p artifacts
           set -o pipefail
           dotnet publish tests/EntityFrameworkCore.DynamoDb.NativeAotTests/EntityFrameworkCore.DynamoDb.NativeAotTests.csproj --configuration Release --framework "${{ needs.resolve.outputs.target_framework }}" --runtime linux-x64 --no-restore --output artifacts/nativeaot-tests 2>&1 | tee artifacts/nativeaot-tests.log
           bash scripts/verify-nativeaot-warnings.sh artifacts/nativeaot-tests.log

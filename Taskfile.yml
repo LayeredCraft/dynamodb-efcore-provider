@@ -145,6 +145,7 @@ tasks:
       - task: aot:write-override
         vars: { FRAMEWORK: '{{.FRAMEWORK}}' }
       - dotnet restore tests/EntityFrameworkCore.DynamoDb.NativeAotTests/EntityFrameworkCore.DynamoDb.NativeAotTests.csproj -p:TargetFrameworks="{{.FRAMEWORK}}" --runtime "{{.RID}}"
+      - mkdir -p artifacts
       - set -o pipefail; dotnet publish tests/EntityFrameworkCore.DynamoDb.NativeAotTests/EntityFrameworkCore.DynamoDb.NativeAotTests.csproj --configuration "{{.CONFIG}}" --framework "{{.FRAMEWORK}}" --runtime "{{.RID}}" --no-restore --output artifacts/nativeaot-tests 2>&1 | tee artifacts/nativeaot-tests.log
       - bash scripts/verify-nativeaot-warnings.sh artifacts/nativeaot-tests.log
       - artifacts/nativeaot-tests/EntityFrameworkCore.DynamoDb.NativeAotTests
