@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Extensions;
+using EntityFrameworkCore.DynamoDb.Metadata;
 using EntityFrameworkCore.DynamoDb.Query.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
@@ -98,7 +99,9 @@ public static class DynamoGeneratedQueryRuntime
             string resolvedTableName,
             string? bakedIndexName,
             string? resolvedIndexName,
-            string? indexModelName,
+            string? indexDeclaringEntityTypeName,
+            string[]? indexPropertyNames,
+            int? indexOrdinal,
             bool isGlobalSecondaryIndex,
             bool isScanLike,
             string? scanMessage,
@@ -119,7 +122,9 @@ public static class DynamoGeneratedQueryRuntime
             _generatedIndexName = bakedIndexName;
             TableName = resolvedTableName;
             IndexName = resolvedIndexName;
-            IndexModelName = indexModelName;
+            IndexDeclaringEntityTypeName = indexDeclaringEntityTypeName;
+            IndexPropertyNames = indexPropertyNames;
+            IndexOrdinal = indexOrdinal;
             IsGlobalSecondaryIndex = isGlobalSecondaryIndex;
             IsScanLike = isScanLike;
             ScanMessage = scanMessage;
@@ -138,7 +143,9 @@ public static class DynamoGeneratedQueryRuntime
 
         internal string TableName { get; }
         internal string? IndexName { get; }
-        internal string? IndexModelName { get; }
+        internal string? IndexDeclaringEntityTypeName { get; }
+        internal string[]? IndexPropertyNames { get; }
+        internal int? IndexOrdinal { get; }
         internal bool IsGlobalSecondaryIndex { get; }
         internal bool IsScanLike { get; }
         internal string? ScanMessage { get; }
@@ -345,7 +352,9 @@ public static class DynamoGeneratedQueryRuntime
         IModel? model,
         string? queryEntityTypeName,
         string? indexName,
-        string? indexModelName,
+        string? indexDeclaringEntityTypeName,
+        string[]? indexPropertyNames,
+        int? indexOrdinal,
         bool globalSecondaryIndex,
         bool scanLike,
         string? scanMessage,
@@ -365,7 +374,10 @@ public static class DynamoGeneratedQueryRuntime
             indexName,
             model,
             queryEntityTypeName,
-            indexModelName);
+            indexDeclaringEntityTypeName,
+            indexPropertyNames,
+            indexOrdinal,
+            globalSecondaryIndex);
 
         return new(
             segments,
@@ -373,7 +385,9 @@ public static class DynamoGeneratedQueryRuntime
             runtimeTableName,
             indexName,
             runtimeIndexName,
-            indexModelName,
+            indexDeclaringEntityTypeName,
+            indexPropertyNames,
+            indexOrdinal,
             globalSecondaryIndex,
             scanLike,
             scanMessage,
@@ -495,20 +509,40 @@ public static class DynamoGeneratedQueryRuntime
         string? indexName,
         IModel? model,
         string? queryEntityTypeName,
-        string? indexModelName)
+        string? indexDeclaringEntityTypeName,
+        string[]? indexPropertyNames,
+        int? indexOrdinal,
+        bool globalSecondaryIndex)
     {
-        if (model is null || queryEntityTypeName is null || indexModelName is null)
+        if (model is null
+            || queryEntityTypeName is null
+            || indexDeclaringEntityTypeName is null
+            || indexPropertyNames is null
+            || indexOrdinal is null
+            || indexOrdinal < 0)
             return indexName;
 
-        var entityType = model.FindEntityType(queryEntityTypeName);
+        var entityType = model.FindEntityType(indexDeclaringEntityTypeName);
         var runtimeIndex =
             entityType
-                ?.GetAllBaseTypes()
-                .Append(entityType)
-                .SelectMany(static type => type.GetDeclaredIndexes())
-                .FirstOrDefault(index => index.Name == indexModelName);
+                ?.GetDeclaredIndexes()
+                .Where(static index => index.GetSecondaryIndexKind() is not null)
+                .Skip(indexOrdinal.Value)
+                .FirstOrDefault();
 
-        return runtimeIndex?.GetSecondaryIndexName() ?? indexName;
+        if (runtimeIndex is null
+            || !runtimeIndex
+                .Properties
+                .Select(static property => property.Name)
+                .SequenceEqual(indexPropertyNames, StringComparer.Ordinal)
+            || runtimeIndex.GetSecondaryIndexKind()
+            != (globalSecondaryIndex
+                ? DynamoSecondaryIndexKind.Global
+                : DynamoSecondaryIndexKind.Local))
+            throw new InvalidOperationException(
+                "The runtime model does not contain the secondary index required by this generated query.");
+
+        return runtimeIndex.GetSecondaryIndexName();
     }
 
     private static string FormatFromClause(string tableName, string? indexName)

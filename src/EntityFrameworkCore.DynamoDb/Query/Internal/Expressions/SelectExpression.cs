@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -262,8 +263,14 @@ public sealed class
     /// <summary>The secondary index name to query, or null for the base table.</summary>
     public string? IndexName { get; private set; }
 
-    /// <summary>The EF model index name used to resolve the physical index name at runtime.</summary>
-    public string? IndexModelName { get; private set; }
+    /// <summary>The secondary-index identity used to resolve its physical name at runtime.</summary>
+    public string? IndexDeclaringEntityTypeName { get; private set; }
+
+    /// <summary>The ordered index property names used to resolve its physical name at runtime.</summary>
+    public string[]? IndexPropertyNames { get; private set; }
+
+    /// <summary>The secondary-index position on its declaring entity type.</summary>
+    public int? IndexOrdinal { get; private set; }
 
     /// <summary>The finalized source kind for this query.</summary>
     internal DynamoIndexSourceKind? IndexSourceKind { get; private set; }
@@ -271,8 +278,22 @@ public sealed class
     /// <summary>Sets the secondary index name to use in the FROM clause.</summary>
     public void ApplyIndexName(string? indexName) => IndexName = indexName;
 
-    /// <summary>Sets the EF model index name used to resolve the physical index name at runtime.</summary>
-    public void ApplyIndexModelName(string? indexModelName) => IndexModelName = indexModelName;
+    /// <summary>Sets the stable model identity used to resolve a physical index name at runtime.</summary>
+    public void ApplyIndexModelIdentity(IReadOnlyIndex? index)
+    {
+        if (index is null)
+            return;
+
+        IndexDeclaringEntityTypeName = index.DeclaringEntityType.Name;
+        IndexPropertyNames = index.Properties.Select(static property => property.Name).ToArray();
+        IndexOrdinal =
+            index
+                .DeclaringEntityType
+                .GetDeclaredIndexes()
+                .Where(static candidate => candidate.GetSecondaryIndexKind() is not null)
+                .TakeWhile(candidate => candidate != index)
+                .Count();
+    }
 
     /// <summary>Sets the finalized source kind for this query.</summary>
     internal void ApplyIndexSourceKind(DynamoIndexSourceKind? indexSourceKind)

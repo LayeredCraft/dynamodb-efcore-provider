@@ -101,9 +101,8 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         if (selectedIndexName is { } chosen)
         {
             selectExpression.ApplyIndexName(chosen);
-            selectExpression.ApplyIndexModelName(
-                candidates.FirstOrDefault(candidate => candidate.IndexName == chosen)
-                    ?.ModelIndex?.Name);
+            selectExpression.ApplyIndexModelIdentity(
+                candidates.FirstOrDefault(candidate => candidate.IndexName == chosen)?.ModelIndex);
         }
 
         selectExpression.ApplyIndexSourceKind(
