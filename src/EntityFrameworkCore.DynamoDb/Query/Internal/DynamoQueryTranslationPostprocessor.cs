@@ -99,7 +99,12 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         EmitIndexSelectionDiagnostics(decision.Diagnostics, dynamoQueryCompilationContext.Logger);
 
         if (selectedIndexName is { } chosen)
+        {
             selectExpression.ApplyIndexName(chosen);
+            selectExpression.ApplyIndexModelName(
+                candidates.FirstOrDefault(candidate => candidate.IndexName == chosen)
+                    ?.ModelIndex?.Name);
+        }
 
         selectExpression.ApplyIndexSourceKind(
             ResolveIndexSourceKind(candidates, decision.SelectedIndexName));

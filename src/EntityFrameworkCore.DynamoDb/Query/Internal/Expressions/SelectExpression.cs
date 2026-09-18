@@ -262,11 +262,17 @@ public sealed class
     /// <summary>The secondary index name to query, or null for the base table.</summary>
     public string? IndexName { get; private set; }
 
+    /// <summary>The EF model index name used to resolve the physical index name at runtime.</summary>
+    public string? IndexModelName { get; private set; }
+
     /// <summary>The finalized source kind for this query.</summary>
     internal DynamoIndexSourceKind? IndexSourceKind { get; private set; }
 
     /// <summary>Sets the secondary index name to use in the FROM clause.</summary>
     public void ApplyIndexName(string? indexName) => IndexName = indexName;
+
+    /// <summary>Sets the EF model index name used to resolve the physical index name at runtime.</summary>
+    public void ApplyIndexModelName(string? indexModelName) => IndexModelName = indexModelName;
 
     /// <summary>Sets the finalized source kind for this query.</summary>
     internal void ApplyIndexSourceKind(DynamoIndexSourceKind? indexSourceKind)

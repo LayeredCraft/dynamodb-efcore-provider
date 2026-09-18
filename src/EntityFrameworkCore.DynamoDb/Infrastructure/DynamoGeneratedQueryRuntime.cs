@@ -90,12 +90,15 @@ public static class DynamoGeneratedQueryRuntime
     {
         private readonly CommandSegment[] _segments;
         private readonly string _generatedTableName;
+        private readonly string? _generatedIndexName;
 
         internal QueryTemplate(
             CommandSegment[] segments,
             string bakedTableName,
             string resolvedTableName,
-            string? indexName,
+            string? bakedIndexName,
+            string? resolvedIndexName,
+            string? indexModelName,
             bool isGlobalSecondaryIndex,
             bool isScanLike,
             string? scanMessage,
@@ -113,8 +116,10 @@ public static class DynamoGeneratedQueryRuntime
         {
             _segments = segments;
             _generatedTableName = bakedTableName;
+            _generatedIndexName = bakedIndexName;
             TableName = resolvedTableName;
-            IndexName = indexName;
+            IndexName = resolvedIndexName;
+            IndexModelName = indexModelName;
             IsGlobalSecondaryIndex = isGlobalSecondaryIndex;
             IsScanLike = isScanLike;
             ScanMessage = scanMessage;
@@ -133,6 +138,7 @@ public static class DynamoGeneratedQueryRuntime
 
         internal string TableName { get; }
         internal string? IndexName { get; }
+        internal string? IndexModelName { get; }
         internal bool IsGlobalSecondaryIndex { get; }
         internal bool IsScanLike { get; }
         internal string? ScanMessage { get; }
@@ -157,10 +163,11 @@ public static class DynamoGeneratedQueryRuntime
             RenderSegments(_segments, parameterValues, sql, parameters);
 
             var statement = sql.ToString();
-            if (!string.Equals(_generatedTableName, TableName, StringComparison.Ordinal))
+            if (!string.Equals(_generatedTableName, TableName, StringComparison.Ordinal)
+                || !string.Equals(_generatedIndexName, IndexName, StringComparison.Ordinal))
                 statement = statement.Replace(
-                    $"FROM \"{_generatedTableName}\"",
-                    $"FROM \"{TableName}\"",
+                    FormatFromClause(_generatedTableName, _generatedIndexName),
+                    FormatFromClause(TableName, IndexName),
                     StringComparison.Ordinal);
 
             return new DynamoPartiQlQuery(statement, parameters);
@@ -338,6 +345,7 @@ public static class DynamoGeneratedQueryRuntime
         IModel? model,
         string? queryEntityTypeName,
         string? indexName,
+        string? indexModelName,
         bool globalSecondaryIndex,
         bool scanLike,
         string? scanMessage,
@@ -353,12 +361,19 @@ public static class DynamoGeneratedQueryRuntime
         bool singleTerminal)
     {
         var runtimeTableName = ResolveRuntimeTableName(tableName, model, queryEntityTypeName);
+        var runtimeIndexName = ResolveRuntimeIndexName(
+            indexName,
+            model,
+            queryEntityTypeName,
+            indexModelName);
 
         return new(
             segments,
             tableName,
             runtimeTableName,
             indexName,
+            runtimeIndexName,
+            indexModelName,
             globalSecondaryIndex,
             scanLike,
             scanMessage,
@@ -475,6 +490,29 @@ public static class DynamoGeneratedQueryRuntime
             && model.FindEntityType(queryEntityTypeName) is { } entityType
                 ? entityType.GetTableGroupName()
                 : tableName;
+
+    private static string? ResolveRuntimeIndexName(
+        string? indexName,
+        IModel? model,
+        string? queryEntityTypeName,
+        string? indexModelName)
+    {
+        if (model is null || queryEntityTypeName is null || indexModelName is null)
+            return indexName;
+
+        var entityType = model.FindEntityType(queryEntityTypeName);
+        var runtimeIndex =
+            entityType
+                ?.GetAllBaseTypes()
+                .Append(entityType)
+                .SelectMany(static type => type.GetDeclaredIndexes())
+                .FirstOrDefault(index => index.Name == indexModelName);
+
+        return runtimeIndex?.GetSecondaryIndexName() ?? indexName;
+    }
+
+    private static string FormatFromClause(string tableName, string? indexName)
+        => indexName is null ? $"FROM \"{tableName}\"" : $"FROM \"{tableName}\".\"{indexName}\"";
 
     /// <summary>Creates a generated asynchronous ExecuteUpdate executor.</summary>
     public static Task<int> CreateUpdateExecutorAsync(

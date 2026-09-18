@@ -73,9 +73,9 @@ parameters. Local collections are expanded to the required number of positional 
 runtime; an empty or null collection becomes a false predicate. Property reads are generated from
 the compiled model so configured value converters are retained.
 
-Generated read and write templates resolve the DynamoDB table name from the runtime EF model, so
-runtime table-name configuration is honored by precompiled queries, `ExecuteUpdateAsync`, and
-`ExecuteDeleteAsync`.
+Generated read templates resolve DynamoDB table and secondary-index names from the runtime EF
+model. Runtime resource-name configuration is honored by precompiled queries; generated write
+templates resolve the table name for `ExecuteUpdateAsync` and `ExecuteDeleteAsync`.
 
 The explicit `IEnumerable<T>` cast avoids the compiler selecting a span-based `Contains` overload
 for local arrays, which EF Core's query precompiler cannot currently translate.

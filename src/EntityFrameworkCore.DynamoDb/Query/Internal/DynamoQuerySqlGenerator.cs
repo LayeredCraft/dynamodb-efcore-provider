@@ -77,6 +77,7 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
                 null,
                 selectExpression.QueryEntityTypeName,
                 selectExpression.IndexName,
+                selectExpression.IndexModelName,
                 selectExpression.IndexSourceKind == DynamoIndexSourceKind.GlobalSecondaryIndex,
                 selectExpression.ScanQueryClassification?.IsScanLike == true,
                 selectExpression.ScanQueryClassification?.Message,

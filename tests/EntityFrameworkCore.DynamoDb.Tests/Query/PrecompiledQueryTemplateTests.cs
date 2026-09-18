@@ -49,6 +49,7 @@ public class PrecompiledQueryTemplateTests
             context.Model,
             generatedTemplate.QueryEntityTypeName,
             generatedTemplate.IndexName,
+            generatedTemplate.IndexModelName,
             generatedTemplate.IsGlobalSecondaryIndex,
             generatedTemplate.IsScanLike,
             generatedTemplate.ScanMessage,
@@ -89,6 +90,7 @@ public class PrecompiledQueryTemplateTests
             context.Model,
             generatedTemplate.QueryEntityTypeName,
             generatedTemplate.IndexName,
+            generatedTemplate.IndexModelName,
             generatedTemplate.IsGlobalSecondaryIndex,
             generatedTemplate.IsScanLike,
             generatedTemplate.ScanMessage,
@@ -108,6 +110,48 @@ public class PrecompiledQueryTemplateTests
             .Sql
             .Should()
             .Be("SELECT \"pk\"\nFROM \"RuntimeItems\"");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Runtime_model_index_name_replaces_generated_from_clause()
+    {
+        using var context = new ConverterContext();
+        var select = CreateSelect(new DynamoTypeMapping(typeof(string)));
+        select.ApplyIndexName("DesignTimeStatus");
+        select.ApplyIndexModelName(
+            context.Model.FindEntityType(typeof(ConvertedEntity))!.GetIndexes().Single().Name);
+        var generatedTemplate = new DynamoQuerySqlGenerator().GeneratePrecompiledTemplate(select);
+        generatedTemplate
+            .IndexModelName
+            .Should()
+            .Be(context.Model.FindEntityType(typeof(ConvertedEntity))!.GetIndexes().Single().Name);
+        var template = DynamoGeneratedQueryRuntime.CreateQueryTemplate(
+            [.. generatedTemplate.Segments],
+            generatedTemplate.TableName,
+            context.Model,
+            generatedTemplate.QueryEntityTypeName,
+            generatedTemplate.IndexName,
+            generatedTemplate.IndexModelName,
+            generatedTemplate.IsGlobalSecondaryIndex,
+            generatedTemplate.IsScanLike,
+            generatedTemplate.ScanMessage,
+            generatedTemplate.ScanAllowed,
+            generatedTemplate.Limit,
+            generatedTemplate.LimitParameterName,
+            generatedTemplate.SeedNextToken,
+            generatedTemplate.SeedNextTokenParameterName,
+            generatedTemplate.ConsistentRead,
+            generatedTemplate.ConsistentReadParameterName,
+            generatedTemplate.HasUserLimit,
+            generatedTemplate.IsFirstTerminal,
+            generatedTemplate.IsSingleTerminal);
+
+        template.IndexName.Should().Be("RuntimeStatus");
+        template
+            .Render(new Dictionary<string, object?>())
+            .Sql
+            .Should()
+            .Be("SELECT \"pk\"\nFROM \"RuntimeItems\".\"RuntimeStatus\"");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -383,6 +427,7 @@ public class PrecompiledQueryTemplateTests
             {
                 entity.ToTable("RuntimeItems");
                 entity.HasPartitionKey(item => item.Pk);
+                entity.HasGlobalSecondaryIndex("RuntimeStatus", item => item.Status);
                 entity.Property(item => item.Status).HasConversion<string>();
             });
     }
