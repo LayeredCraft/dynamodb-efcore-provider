@@ -115,20 +115,28 @@ public class PrecompiledQueryTemplateTests
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Runtime_model_index_name_replaces_generated_from_clause()
     {
-        using var context = new ConverterContext();
+        using var designTimeContext = new DesignTimeConverterContext();
+        using var runtimeContext = new ConverterContext();
         var select = CreateSelect(new DynamoTypeMapping(typeof(string)));
         select.ApplyIndexName("DesignTimeStatus");
         select.ApplyIndexModelName(
-            context.Model.FindEntityType(typeof(ConvertedEntity))!.GetIndexes().Single().Name);
+            designTimeContext.Model.FindEntityType(typeof(ConvertedEntity))!
+                .GetIndexes()
+                .Single()
+                .Name);
         var generatedTemplate = new DynamoQuerySqlGenerator().GeneratePrecompiledTemplate(select);
         generatedTemplate
             .IndexModelName
             .Should()
-            .Be(context.Model.FindEntityType(typeof(ConvertedEntity))!.GetIndexes().Single().Name);
+            .Be(
+                designTimeContext.Model.FindEntityType(typeof(ConvertedEntity))!
+                    .GetIndexes()
+                    .Single()
+                    .Name);
         var template = DynamoGeneratedQueryRuntime.CreateQueryTemplate(
             [.. generatedTemplate.Segments],
             generatedTemplate.TableName,
-            context.Model,
+            runtimeContext.Model,
             generatedTemplate.QueryEntityTypeName,
             generatedTemplate.IndexName,
             generatedTemplate.IndexModelName,
@@ -414,7 +422,7 @@ public class PrecompiledQueryTemplateTests
         return select;
     }
 
-    private sealed class ConverterContext : DbContext
+    private class ConverterContext(string indexName = "RuntimeStatus") : DbContext
     {
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             => optionsBuilder
@@ -427,10 +435,12 @@ public class PrecompiledQueryTemplateTests
             {
                 entity.ToTable("RuntimeItems");
                 entity.HasPartitionKey(item => item.Pk);
-                entity.HasGlobalSecondaryIndex("RuntimeStatus", item => item.Status);
+                entity.HasGlobalSecondaryIndex(indexName, item => item.Status);
                 entity.Property(item => item.Status).HasConversion<string>();
             });
     }
+
+    private sealed class DesignTimeConverterContext() : ConverterContext("DesignTimeStatus");
 
     private sealed class InheritanceContext : DbContext
     {
