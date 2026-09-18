@@ -342,6 +342,13 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                 nameof(ShapedQueryCompilingExpressionVisitorDependencies.Model)),
             Constant(template.QueryEntityTypeName, typeof(string)),
             Constant(template.IndexName, typeof(string)),
+            Constant(template.IndexDeclaringEntityTypeName, typeof(string)),
+            template.IndexPropertyNames is null
+                ? Constant(null, typeof(string[]))
+                : NewArrayInit(
+                    typeof(string),
+                    template.IndexPropertyNames.Select(static name => Constant(name))),
+            Constant(template.IndexOrdinal, typeof(int?)),
             Constant(template.IsGlobalSecondaryIndex),
             Constant(template.IsScanLike),
             Constant(template.ScanMessage, typeof(string)),

@@ -49,6 +49,9 @@ public class PrecompiledQueryTemplateTests
             context.Model,
             generatedTemplate.QueryEntityTypeName,
             generatedTemplate.IndexName,
+            generatedTemplate.IndexDeclaringEntityTypeName,
+            generatedTemplate.IndexPropertyNames,
+            generatedTemplate.IndexOrdinal,
             generatedTemplate.IsGlobalSecondaryIndex,
             generatedTemplate.IsScanLike,
             generatedTemplate.ScanMessage,
@@ -89,6 +92,9 @@ public class PrecompiledQueryTemplateTests
             context.Model,
             generatedTemplate.QueryEntityTypeName,
             generatedTemplate.IndexName,
+            generatedTemplate.IndexDeclaringEntityTypeName,
+            generatedTemplate.IndexPropertyNames,
+            generatedTemplate.IndexOrdinal,
             generatedTemplate.IsGlobalSecondaryIndex,
             generatedTemplate.IsScanLike,
             generatedTemplate.ScanMessage,
@@ -108,6 +114,176 @@ public class PrecompiledQueryTemplateTests
             .Sql
             .Should()
             .Be("SELECT \"pk\"\nFROM \"RuntimeItems\"");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Runtime_model_index_name_replaces_generated_from_clause()
+    {
+        using var designTimeContext = new DesignTimeConverterContext();
+        using var runtimeContext = new ConverterContext();
+        var select = CreateSelect(new DynamoTypeMapping(typeof(string)));
+        select.ApplyIndexName("DesignTimeStatus");
+        select.ApplyIndexSourceKind(DynamoIndexSourceKind.GlobalSecondaryIndex);
+        select.ApplyIndexModelIdentity(
+            designTimeContext.Model.FindEntityType(typeof(ConvertedEntity))!.GetIndexes().Single());
+        var generatedTemplate = new DynamoQuerySqlGenerator().GeneratePrecompiledTemplate(select);
+        generatedTemplate
+            .IndexDeclaringEntityTypeName
+            .Should()
+            .Be(typeof(ConvertedEntity).FullName);
+        generatedTemplate.IndexPropertyNames.Should().Equal(nameof(ConvertedEntity.Status));
+        generatedTemplate.IndexOrdinal.Should().Be(0);
+        var template = DynamoGeneratedQueryRuntime.CreateQueryTemplate(
+            [.. generatedTemplate.Segments],
+            generatedTemplate.TableName,
+            runtimeContext.Model,
+            generatedTemplate.QueryEntityTypeName,
+            generatedTemplate.IndexName,
+            generatedTemplate.IndexDeclaringEntityTypeName,
+            generatedTemplate.IndexPropertyNames,
+            generatedTemplate.IndexOrdinal,
+            generatedTemplate.IsGlobalSecondaryIndex,
+            generatedTemplate.IsScanLike,
+            generatedTemplate.ScanMessage,
+            generatedTemplate.ScanAllowed,
+            generatedTemplate.Limit,
+            generatedTemplate.LimitParameterName,
+            generatedTemplate.SeedNextToken,
+            generatedTemplate.SeedNextTokenParameterName,
+            generatedTemplate.ConsistentRead,
+            generatedTemplate.ConsistentReadParameterName,
+            generatedTemplate.HasUserLimit,
+            generatedTemplate.IsFirstTerminal,
+            generatedTemplate.IsSingleTerminal);
+
+        template.IndexName.Should().Be("RuntimeStatus");
+        template
+            .Render(new Dictionary<string, object?>())
+            .Sql
+            .Should()
+            .Be("SELECT \"pk\"\nFROM \"RuntimeItems\".\"RuntimeStatus\"");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Runtime_model_uses_the_matching_duplicate_property_index()
+    {
+        using var designTimeContext = new DuplicateDesignTimeConverterContext();
+        using var runtimeContext = new DuplicateRuntimeConverterContext();
+        var designTimeIndex =
+            designTimeContext.Model.FindEntityType(typeof(ConvertedEntity))!
+                .GetIndexes()
+                .Single(index => index.Name == "DesignTimeStatusSecondary");
+        var select = CreateSelect(new DynamoTypeMapping(typeof(string)));
+        select.ApplyIndexName("DesignTimeStatusSecondary");
+        select.ApplyIndexSourceKind(DynamoIndexSourceKind.GlobalSecondaryIndex);
+        select.ApplyIndexModelIdentity(designTimeIndex);
+        var generatedTemplate = new DynamoQuerySqlGenerator().GeneratePrecompiledTemplate(select);
+        var template = DynamoGeneratedQueryRuntime.CreateQueryTemplate(
+            [.. generatedTemplate.Segments],
+            generatedTemplate.TableName,
+            runtimeContext.Model,
+            generatedTemplate.QueryEntityTypeName,
+            generatedTemplate.IndexName,
+            generatedTemplate.IndexDeclaringEntityTypeName,
+            generatedTemplate.IndexPropertyNames,
+            generatedTemplate.IndexOrdinal,
+            generatedTemplate.IsGlobalSecondaryIndex,
+            generatedTemplate.IsScanLike,
+            generatedTemplate.ScanMessage,
+            generatedTemplate.ScanAllowed,
+            generatedTemplate.Limit,
+            generatedTemplate.LimitParameterName,
+            generatedTemplate.SeedNextToken,
+            generatedTemplate.SeedNextTokenParameterName,
+            generatedTemplate.ConsistentRead,
+            generatedTemplate.ConsistentReadParameterName,
+            generatedTemplate.HasUserLimit,
+            generatedTemplate.IsFirstTerminal,
+            generatedTemplate.IsSingleTerminal);
+
+        template.IndexName.Should().Be("RuntimeStatusSecondary");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Runtime_model_resolves_index_declared_on_base_entity()
+    {
+        using var designTimeContext = new DesignTimeInheritanceContext();
+        using var runtimeContext = new RuntimeInheritanceContext();
+        var select = new SelectExpression("RuntimeItems", typeof(DerivedEntity).FullName);
+        select.AddToProjection(
+            new SqlPropertyExpression(
+                "pk",
+                typeof(string),
+                new DynamoTypeMapping(typeof(string)),
+                true),
+            "pk");
+        select.ApplyIndexName("DesignTimeStatus");
+        select.ApplyIndexSourceKind(DynamoIndexSourceKind.GlobalSecondaryIndex);
+        select.ApplyIndexModelIdentity(
+            designTimeContext.Model.FindEntityType(typeof(BaseEntity))!.GetIndexes().Single());
+        var generatedTemplate = new DynamoQuerySqlGenerator().GeneratePrecompiledTemplate(select);
+        var template = DynamoGeneratedQueryRuntime.CreateQueryTemplate(
+            [.. generatedTemplate.Segments],
+            generatedTemplate.TableName,
+            runtimeContext.Model,
+            generatedTemplate.QueryEntityTypeName,
+            generatedTemplate.IndexName,
+            generatedTemplate.IndexDeclaringEntityTypeName,
+            generatedTemplate.IndexPropertyNames,
+            generatedTemplate.IndexOrdinal,
+            generatedTemplate.IsGlobalSecondaryIndex,
+            generatedTemplate.IsScanLike,
+            generatedTemplate.ScanMessage,
+            generatedTemplate.ScanAllowed,
+            generatedTemplate.Limit,
+            generatedTemplate.LimitParameterName,
+            generatedTemplate.SeedNextToken,
+            generatedTemplate.SeedNextTokenParameterName,
+            generatedTemplate.ConsistentRead,
+            generatedTemplate.ConsistentReadParameterName,
+            generatedTemplate.HasUserLimit,
+            generatedTemplate.IsFirstTerminal,
+            generatedTemplate.IsSingleTerminal);
+
+        template.IndexName.Should().Be("RuntimeStatus");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Runtime_model_with_a_different_index_shape_throws()
+    {
+        using var designTimeContext = new DesignTimeConverterContext();
+        using var runtimeContext = new MismatchedRuntimeConverterContext();
+        var select = CreateSelect(new DynamoTypeMapping(typeof(string)));
+        select.ApplyIndexName("DesignTimeStatus");
+        select.ApplyIndexSourceKind(DynamoIndexSourceKind.GlobalSecondaryIndex);
+        select.ApplyIndexModelIdentity(
+            designTimeContext.Model.FindEntityType(typeof(ConvertedEntity))!.GetIndexes().Single());
+        var generatedTemplate = new DynamoQuerySqlGenerator().GeneratePrecompiledTemplate(select);
+
+        var createTemplate = () => DynamoGeneratedQueryRuntime.CreateQueryTemplate(
+            [.. generatedTemplate.Segments],
+            generatedTemplate.TableName,
+            runtimeContext.Model,
+            generatedTemplate.QueryEntityTypeName,
+            generatedTemplate.IndexName,
+            generatedTemplate.IndexDeclaringEntityTypeName,
+            generatedTemplate.IndexPropertyNames,
+            generatedTemplate.IndexOrdinal,
+            generatedTemplate.IsGlobalSecondaryIndex,
+            generatedTemplate.IsScanLike,
+            generatedTemplate.ScanMessage,
+            generatedTemplate.ScanAllowed,
+            generatedTemplate.Limit,
+            generatedTemplate.LimitParameterName,
+            generatedTemplate.SeedNextToken,
+            generatedTemplate.SeedNextTokenParameterName,
+            generatedTemplate.ConsistentRead,
+            generatedTemplate.ConsistentReadParameterName,
+            generatedTemplate.HasUserLimit,
+            generatedTemplate.IsFirstTerminal,
+            generatedTemplate.IsSingleTerminal);
+
+        createTemplate.Should().Throw<InvalidOperationException>();
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -370,7 +546,10 @@ public class PrecompiledQueryTemplateTests
         return select;
     }
 
-    private sealed class ConverterContext : DbContext
+    private class ConverterContext(
+        string indexName = "RuntimeStatus",
+        string? secondaryIndexName = null,
+        bool usePartitionKey = false) : DbContext
     {
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             => optionsBuilder
@@ -383,11 +562,30 @@ public class PrecompiledQueryTemplateTests
             {
                 entity.ToTable("RuntimeItems");
                 entity.HasPartitionKey(item => item.Pk);
+                entity.HasGlobalSecondaryIndex(
+                    indexName,
+                    usePartitionKey ? nameof(ConvertedEntity.Pk) : nameof(ConvertedEntity.Status));
+                if (secondaryIndexName is not null)
+                    entity.HasGlobalSecondaryIndex(secondaryIndexName, item => item.Status);
                 entity.Property(item => item.Status).HasConversion<string>();
             });
     }
 
-    private sealed class InheritanceContext : DbContext
+    private sealed class DesignTimeConverterContext() : ConverterContext("DesignTimeStatus");
+
+    private sealed class DuplicateDesignTimeConverterContext() : ConverterContext(
+        "DesignTimeStatus",
+        "DesignTimeStatusSecondary");
+
+    private sealed class DuplicateRuntimeConverterContext() : ConverterContext(
+        "RuntimeStatus",
+        "RuntimeStatusSecondary");
+
+    private sealed class MismatchedRuntimeConverterContext() : ConverterContext(
+        "RuntimeStatus",
+        usePartitionKey: true);
+
+    private class InheritanceContext(string? indexName = null) : DbContext
     {
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             => optionsBuilder
@@ -401,10 +599,16 @@ public class PrecompiledQueryTemplateTests
             {
                 entity.ToTable("RuntimeItems");
                 entity.HasPartitionKey(item => item.Pk);
+                if (indexName is not null)
+                    entity.HasGlobalSecondaryIndex(indexName, item => item.Pk);
             });
             modelBuilder.Entity<DerivedEntity>();
         }
     }
+
+    private sealed class DesignTimeInheritanceContext() : InheritanceContext("DesignTimeStatus");
+
+    private sealed class RuntimeInheritanceContext() : InheritanceContext("RuntimeStatus");
 
     private sealed class ConvertedEntity
     {
