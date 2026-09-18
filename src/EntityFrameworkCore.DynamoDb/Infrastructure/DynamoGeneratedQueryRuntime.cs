@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.Query.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
@@ -88,10 +89,12 @@ public static class DynamoGeneratedQueryRuntime
     public sealed class QueryTemplate
     {
         private readonly CommandSegment[] _segments;
+        private readonly string _generatedTableName;
 
         internal QueryTemplate(
             CommandSegment[] segments,
-            string tableName,
+            string bakedTableName,
+            string resolvedTableName,
             string? indexName,
             bool isGlobalSecondaryIndex,
             bool isScanLike,
@@ -105,10 +108,12 @@ public static class DynamoGeneratedQueryRuntime
             string? consistentReadParameterName,
             bool hasUserLimit,
             bool isFirstTerminal,
-            bool isSingleTerminal)
+            bool isSingleTerminal,
+            string? queryEntityTypeName)
         {
             _segments = segments;
-            TableName = tableName;
+            _generatedTableName = bakedTableName;
+            TableName = resolvedTableName;
             IndexName = indexName;
             IsGlobalSecondaryIndex = isGlobalSecondaryIndex;
             IsScanLike = isScanLike;
@@ -123,6 +128,7 @@ public static class DynamoGeneratedQueryRuntime
             HasUserLimit = hasUserLimit;
             IsFirstTerminal = isFirstTerminal;
             IsSingleTerminal = isSingleTerminal;
+            QueryEntityTypeName = queryEntityTypeName;
         }
 
         internal string TableName { get; }
@@ -140,6 +146,7 @@ public static class DynamoGeneratedQueryRuntime
         internal bool HasUserLimit { get; }
         internal bool IsFirstTerminal { get; }
         internal bool IsSingleTerminal { get; }
+        internal string? QueryEntityTypeName { get; }
         internal IReadOnlyList<CommandSegment> Segments => _segments;
 
         internal DynamoPartiQlQuery Render(IReadOnlyDictionary<string, object?> parameterValues)
@@ -149,7 +156,14 @@ public static class DynamoGeneratedQueryRuntime
 
             RenderSegments(_segments, parameterValues, sql, parameters);
 
-            return new DynamoPartiQlQuery(sql.ToString(), parameters);
+            var statement = sql.ToString();
+            if (!string.Equals(_generatedTableName, TableName, StringComparison.Ordinal))
+                statement = statement.Replace(
+                    $"FROM \"{_generatedTableName}\"",
+                    $"FROM \"{TableName}\"",
+                    StringComparison.Ordinal);
+
+            return new DynamoPartiQlQuery(statement, parameters);
         }
 
         internal SelectExpression CreateExecutionExpression()
@@ -321,6 +335,8 @@ public static class DynamoGeneratedQueryRuntime
     public static QueryTemplate CreateQueryTemplate(
         CommandSegment[] segments,
         string tableName,
+        IModel? model,
+        string? queryEntityTypeName,
         string? indexName,
         bool globalSecondaryIndex,
         bool scanLike,
@@ -335,9 +351,13 @@ public static class DynamoGeneratedQueryRuntime
         bool userLimit,
         bool firstTerminal,
         bool singleTerminal)
-        => new(
+    {
+        var runtimeTableName = ResolveRuntimeTableName(tableName, model, queryEntityTypeName);
+
+        return new(
             segments,
             tableName,
+            runtimeTableName,
             indexName,
             globalSecondaryIndex,
             scanLike,
@@ -351,7 +371,9 @@ public static class DynamoGeneratedQueryRuntime
             consistentReadParameterName,
             userLimit,
             firstTerminal,
-            singleTerminal);
+            singleTerminal,
+            queryEntityTypeName);
+    }
 
     /// <summary>Creates a generated asynchronous query enumerable.</summary>
     public static IAsyncEnumerable<T> CreateAsyncQueryingEnumerable<T>(
@@ -387,14 +409,22 @@ public static class DynamoGeneratedQueryRuntime
     public sealed class UpdateTemplate
     {
         private readonly CommandSegment[] _segments;
+        private readonly string _generatedTableName;
 
-        internal UpdateTemplate(CommandSegment[] segments, string tableName)
+        internal UpdateTemplate(
+            CommandSegment[] segments,
+            string generatedTableName,
+            string tableName,
+            string? queryEntityTypeName)
         {
             _segments = segments;
+            _generatedTableName = generatedTableName;
             TableName = tableName;
+            QueryEntityTypeName = queryEntityTypeName;
         }
 
         internal string TableName { get; }
+        internal string? QueryEntityTypeName { get; }
 
         internal IReadOnlyList<CommandSegment> Segments => _segments;
 
@@ -407,6 +437,17 @@ public static class DynamoGeneratedQueryRuntime
             RenderSegments(_segments, parameterValues, sql, parameters);
 
             var statement = sql.ToString();
+            if (!string.Equals(_generatedTableName, TableName, StringComparison.Ordinal))
+                statement = statement
+                    .Replace(
+                        $"UPDATE \"{_generatedTableName}\"",
+                        $"UPDATE \"{TableName}\"",
+                        StringComparison.Ordinal)
+                    .Replace(
+                        $"DELETE FROM \"{_generatedTableName}\"",
+                        $"DELETE FROM \"{TableName}\"",
+                        StringComparison.Ordinal);
+
             DynamoPartiQlStatementValidator.ValidateStatementLength(statement, "write");
 
             return new DynamoPartiQlQuery(statement, parameters);
@@ -414,8 +455,26 @@ public static class DynamoGeneratedQueryRuntime
     }
 
     /// <summary>Creates the runtime form of a generated ExecuteUpdate template.</summary>
-    public static UpdateTemplate CreateUpdateTemplate(CommandSegment[] segments, string tableName)
-        => new(segments, tableName);
+    public static UpdateTemplate CreateUpdateTemplate(
+        CommandSegment[] segments,
+        string tableName,
+        IModel? model,
+        string? queryEntityTypeName)
+        => new(
+            segments,
+            tableName,
+            ResolveRuntimeTableName(tableName, model, queryEntityTypeName),
+            queryEntityTypeName);
+
+    private static string ResolveRuntimeTableName(
+        string tableName,
+        IModel? model,
+        string? queryEntityTypeName)
+        => model is not null
+            && queryEntityTypeName is not null
+            && model.FindEntityType(queryEntityTypeName) is { } entityType
+                ? entityType.GetTableGroupName()
+                : tableName;
 
     /// <summary>Creates a generated asynchronous ExecuteUpdate executor.</summary>
     public static Task<int> CreateUpdateExecutorAsync(

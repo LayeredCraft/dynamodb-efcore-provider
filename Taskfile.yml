@@ -132,6 +132,24 @@ tasks:
       - dotnet build tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj --configuration "{{.CONFIG}}" --framework "{{.FRAMEWORK}}" --no-restore
       - dotnet test tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj --configuration "{{.CONFIG}}" --framework "{{.FRAMEWORK}}" --no-build
 
+  test:aot-publish:
+    desc: Publish and run NativeAOT tests for CONFIG/FRAMEWORK (default Release/net10.0)
+    silent: true
+    vars:
+      CONFIG: '{{.CONFIG | default "Release"}}'
+      FRAMEWORK: '{{.FRAMEWORK | default "net10.0"}}'
+      RID:
+        sh: 'os=$(uname -s); arch=$(uname -m); case "$os" in Darwin) rid="osx";; Linux) rid="linux";; *) echo "Unsupported OS for AOT tasks: $os" >&2; exit 1;; esac; case "$arch" in arm64|aarch64) rid="$rid-arm64";; x86_64) rid="$rid-x64";; *) echo "Unsupported architecture: $arch" >&2; exit 1;; esac; echo "$rid"'
+    cmds:
+      - defer: { task: aot:clear-override }
+      - task: aot:write-override
+        vars: { FRAMEWORK: '{{.FRAMEWORK}}' }
+      - dotnet restore tests/EntityFrameworkCore.DynamoDb.NativeAotTests/EntityFrameworkCore.DynamoDb.NativeAotTests.csproj -p:TargetFrameworks="{{.FRAMEWORK}}" --runtime "{{.RID}}"
+      - mkdir -p artifacts
+      - set -o pipefail; dotnet publish tests/EntityFrameworkCore.DynamoDb.NativeAotTests/EntityFrameworkCore.DynamoDb.NativeAotTests.csproj --configuration "{{.CONFIG}}" --framework "{{.FRAMEWORK}}" --runtime "{{.RID}}" --no-restore --output artifacts/nativeaot-tests 2>&1 | tee artifacts/nativeaot-tests.log
+      - bash scripts/verify-nativeaot-warnings.sh artifacts/nativeaot-tests.log
+      - artifacts/nativeaot-tests/EntityFrameworkCore.DynamoDb.NativeAotTests
+
   aot:write-override:
     desc: Write TargetFrameworkOverride.props for FRAMEWORK (internal helper)
     internal: true
@@ -147,20 +165,6 @@ tasks:
     silent: true
     cmds:
       - bash {{.ROOT_DIR}}/scripts/write-target-framework-override.sh --clear
-
-  test:aot-publish:
-    desc: Publish, gate warnings, and run NativeAOT smoke app for CONFIG/FRAMEWORK (default Release/net10.0)
-    silent: true
-    vars:
-      CONFIG: '{{.CONFIG | default "Release"}}'
-      FRAMEWORK: '{{.FRAMEWORK | default "net10.0"}}'
-      RID:
-        sh: 'os=$(uname -s); arch=$(uname -m); case "$os" in Darwin) rid="osx";; Linux) rid="linux";; *) echo "Unsupported OS for AOT tasks: $os" >&2; exit 1;; esac; case "$arch" in arm64|aarch64) rid="$rid-arm64";; x86_64) rid="$rid-x64";; *) echo "Unsupported architecture: $arch" >&2; exit 1;; esac; echo "$rid"'
-    cmds:
-      - defer: { task: aot:clear-override }
-      - task: aot:write-override
-        vars: { FRAMEWORK: '{{.FRAMEWORK}}' }
-      - bash {{.ROOT_DIR}}/scripts/run-nativeaot-smoke.sh "{{.CONFIG}}" "{{.RID}}" "{{.FRAMEWORK}}"
 
   docs:build:
     desc: Build docs site with Zensical
