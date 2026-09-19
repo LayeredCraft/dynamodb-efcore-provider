@@ -208,6 +208,36 @@ public sealed class NativeAotRuntimeTests(DynamoFixture fixture)
     }
 
     [Fact(Timeout = Timeout)]
+    public async Task Precompiled_execute_update_with_constant_setter_updates_item()
+    {
+        await fixture.ResetAndSeedAsync(TestContext.Current.CancellationToken);
+
+        var affected = await AotRuntimeQueries.ExecuteUpdateNameAsync();
+        if (affected != 1)
+            throw new InvalidOperationException($"Expected one updated item, received {affected}.");
+
+        var item = await AotRuntimeQueries.LoadByKeyAsync("tenant-1", "sk-1");
+        if (item?.Name != "Updated")
+            throw new InvalidOperationException(
+                "Expected the constant setter to update the item name.");
+    }
+
+    [Fact(Timeout = Timeout)]
+    public async Task Precompiled_execute_update_with_self_reference_updates_item()
+    {
+        await fixture.ResetAndSeedAsync(TestContext.Current.CancellationToken);
+
+        var affected = await AotRuntimeQueries.ExecuteUpdateCountAsync();
+        if (affected != 1)
+            throw new InvalidOperationException($"Expected one updated item, received {affected}.");
+
+        var item = await AotRuntimeQueries.LoadByKeyAsync("tenant-1", "sk-1");
+        if (item?.Count != 43)
+            throw new InvalidOperationException(
+                "Expected the self-referencing setter to increment the count.");
+    }
+
+    [Fact(Timeout = Timeout)]
     public async Task Precompiled_query_uses_runtime_configured_table_name()
     {
         try
