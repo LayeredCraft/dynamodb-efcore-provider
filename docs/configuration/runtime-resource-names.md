@@ -124,7 +124,13 @@ resource. It reports:
   model declares `Trivia`), including the declared logical tables;
 - a mapped index that the table does not declare, including the declared indexes;
 - an index mapping for an unknown logical table;
-- two tables, or two indexes of one table, mapped to the same physical name;
+- two tables mapped to the same physical name;
+- two indexes of one table that would end up with the same physical name. This considers every index
+  of the table, not only the mapped ones: a mapped index that lands on the physical name of an
+  index you did not map is rejected, and the message names both logical indexes;
+- a physical index that the model shares between several logical indexes (or several entity types)
+  but that you map only partially or to different names. Every logical index that shares a physical
+  index must resolve to the same effective name;
 - conflicting or duplicated logical table identities in the model.
 
 Mapping the same logical table or index twice is rejected when the mapping is configured, and empty

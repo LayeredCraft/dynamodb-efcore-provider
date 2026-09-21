@@ -41,28 +41,9 @@ internal static class DynamoTableGroups
             .GroupBy(static entityType => entityType.ComputeTableGroupName(), StringComparer.Ordinal))
         {
             var entityTypes = table.ToArray();
-            var declarations = entityTypes
-                .Select(static entityType => (
-                    EntityType: entityType,
-                    Name: entityType.FindAnnotation(DynamoAnnotationNames.LogicalTableName)?.Value
-                        as string))
-                .Where(static declaration => declaration.Name is not null)
-                .ToArray();
+            var distinct = DeclaredLogicalName(table.Key, entityTypes);
 
-            var distinct = declarations
-                .Select(static declaration => declaration.Name!)
-                .Distinct(StringComparer.Ordinal)
-                .ToArray();
-            if (distinct.Length > 1)
-                throw new InvalidOperationException(
-                    $"The entity types mapped to DynamoDB table '{table.Key}' declare conflicting logical table names: "
-                    + string.Join(
-                        ", ",
-                        declarations.Select(static declaration
-                            => $"'{declaration.Name}' on '{declaration.EntityType.DisplayName()}'"))
-                    + ". A table has one logical name; declare it consistently or on a single entity type.");
-
-            groups.Add(new DynamoTableGroup(table.Key, distinct.FirstOrDefault(), entityTypes));
+            groups.Add(new DynamoTableGroup(table.Key, distinct, entityTypes));
         }
 
         foreach (var duplicate in groups
@@ -76,4 +57,59 @@ internal static class DynamoTableGroups
 
         return groups;
     }
+
+    /// <summary>
+    ///     Resolves the logical table identity of the table an entity type is mapped to: the identity
+    ///     declared on any entity type of that table, or <see langword="null" /> when none is declared.
+    /// </summary>
+    /// <remarks>
+    ///     Reads annotations only, so it is safe on a partially built model. It scans the model's entity
+    ///     types once per call and is not intended for query hot paths.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     Entity types of the table declare different logical names.
+    /// </exception>
+    public static string? ResolveLogicalTableName(IReadOnlyEntityType entityType)
+    {
+        var tableName = entityType.ComputeTableGroupName();
+        return DeclaredLogicalName(
+            tableName,
+            entityType
+                .Model
+                .GetEntityTypes()
+                .Where(other => string.Equals(
+                    other.ComputeTableGroupName(),
+                    tableName,
+                    StringComparison.Ordinal))
+                .ToArray());
+    }
+
+    private static string? DeclaredLogicalName(
+        string tableName,
+        IReadOnlyList<IReadOnlyEntityType> tableEntityTypes)
+    {
+        var declarations = tableEntityTypes
+            .Select(static entityType => (
+                EntityType: entityType,
+                Name: entityType.FindAnnotation(DynamoAnnotationNames.LogicalTableName)?.Value
+                    as string))
+            .Where(static declaration => declaration.Name is not null)
+            .ToArray();
+
+        var distinct = declarations
+            .Select(static declaration => declaration.Name!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (distinct.Length > 1)
+            throw new InvalidOperationException(
+                $"The entity types mapped to DynamoDB table '{tableName}' declare conflicting logical table names: "
+                + string.Join(
+                    ", ",
+                    declarations.Select(static declaration
+                        => $"'{declaration.Name}' on '{declaration.EntityType.DisplayName()}'"))
+                + ". A table has one logical name; declare it consistently or on a single entity type.");
+
+        return distinct.FirstOrDefault();
+    }
 }
+

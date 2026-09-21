@@ -154,23 +154,17 @@ public sealed class DynamoModelRuntimeInitializer(
         foreach (var (logicalTable, indexNames) in names.SecondaryIndexes)
         {
             var group = FindGroup(groups, logicalTable, "secondary index");
-            var indexesByName = group
+            var secondaryIndexes = group
                 .EntityTypes
                 .SelectMany(static entityType => entityType.GetDeclaredIndexes())
                 .Where(static index => index.GetSecondaryIndexKind() is not null
                     && index.Name is not null)
-                .ToLookup(static index => index.Name!, StringComparer.Ordinal);
+                .ToArray();
+            var indexesByName = secondaryIndexes.ToLookup(
+                static index => index.Name!,
+                StringComparer.Ordinal);
 
-            foreach (var duplicate in indexNames
-                .GroupBy(static pair => pair.Value, StringComparer.Ordinal)
-                .Where(static physical => physical.Count() > 1))
-                throw new InvalidOperationException(
-                    $"The DynamoDB runtime resource-name configuration maps more than one secondary index of logical table '{logicalTable}' to the physical index '{duplicate.Key}': "
-                    + string.Join(", ", duplicate.Select(static pair => $"'{pair.Key}'"))
-                    + ". Each index needs its own physical name.");
-
-            foreach (var (logicalIndex, physicalName) in indexNames)
-            {
+            foreach (var logicalIndex in indexNames.Keys)
                 if (!indexesByName.Contains(logicalIndex))
                     throw new InvalidOperationException(
                         $"The DynamoDB runtime resource-name configuration maps secondary index '{logicalIndex}' of logical table '{logicalTable}', "
@@ -180,14 +174,88 @@ public sealed class DynamoModelRuntimeInitializer(
                             : $"Declared secondary indexes: {string.Join(", ", indexesByName.Select(static i => $"'{i.Key}'").Order(StringComparer.Ordinal))}.")
                         + " The logical index name is the EF index name passed to HasGlobalSecondaryIndex or HasLocalSecondaryIndex.");
 
+            ValidateEffectiveIndexes(logicalTable, secondaryIndexes, indexNames);
+
+            foreach (var (logicalIndex, physicalName) in indexNames)
                 // The initializer only ever runs over an IModel, whose indexes are IIndex.
                 foreach (var index in indexesByName[logicalIndex].Cast<IIndex>())
                     index.SetRuntimeAnnotation(
                         DynamoAnnotationNames.RuntimeSecondaryIndexName,
                         physicalName);
-            }
         }
     }
+
+    /// <summary>
+    ///     Checks the effective physical index names of a whole table, not only the indexes a mapping
+    ///     mentions.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The provider identifies one physical index by its configured (design-time) name: entity
+    ///         types that share a table and declare an index with the same physical name share that one
+    ///         index, and may give the EF index different names. A runtime mapping must not change that
+    ///         identity, so two rules hold for every index of the table:
+    ///     </para>
+    ///     <list type="bullet">
+    ///         <item>
+    ///             indexes that the model declares with different physical names must not resolve to the
+    ///             same effective name, whether or not the mapping mentions all of them;
+    ///         </item>
+    ///         <item>
+    ///             indexes that the model declares with the same physical name must resolve to one
+    ///             effective name, so a shared physical index is neither split nor partly mapped.
+    ///         </item>
+    ///     </list>
+    ///     Equivalent declarations of one logical index on several entity types are the same resource
+    ///     and are never treated as a conflict.
+    /// </remarks>
+    private static void ValidateEffectiveIndexes(
+        string logicalTable,
+        IReadOnlyList<IReadOnlyIndex> secondaryIndexes,
+        IReadOnlyDictionary<string, string> indexNames)
+    {
+        var resources = secondaryIndexes
+            .Select(index =>
+            {
+                var modelName = index[DynamoAnnotationNames.SecondaryIndexName] as string
+                    ?? index.Name!;
+                var mapped = indexNames.TryGetValue(index.Name!, out var runtimeName);
+                return new EffectiveIndex(index.Name!, modelName, mapped, mapped ? runtimeName! : modelName);
+            })
+            .Distinct()
+            .ToArray();
+
+        foreach (var collision in resources
+            .GroupBy(static resource => resource.EffectiveName, StringComparer.Ordinal)
+            .Where(static effective => effective.Select(static r => r.ModelName).Distinct(StringComparer.Ordinal).Count() > 1))
+            throw new InvalidOperationException(
+                $"The DynamoDB runtime resource-name configuration resolves more than one secondary index of logical table '{logicalTable}' to the physical index '{collision.Key}': "
+                + string.Join(", ", DescribeIndexes(collision))
+                + ". Each index needs its own physical name; map the indexes to different names or map the other index as well.");
+
+        foreach (var split in resources
+            .GroupBy(static resource => resource.ModelName, StringComparer.Ordinal)
+            .Where(static model => model.Select(static r => r.EffectiveName).Distinct(StringComparer.Ordinal).Count() > 1))
+            throw new InvalidOperationException(
+                $"The DynamoDB runtime resource-name configuration resolves the physical index '{split.Key}' of logical table '{logicalTable}', which the model shares between several logical indexes, to different names: "
+                + string.Join(", ", DescribeIndexes(split))
+                + ". Map every logical index that shares a physical index to the same physical name.");
+    }
+
+    private static IEnumerable<string> DescribeIndexes(IEnumerable<EffectiveIndex> resources)
+        => resources
+            .OrderByDescending(static resource => resource.Mapped)
+            .ThenBy(static resource => resource.LogicalName, StringComparer.Ordinal)
+            .Select(static resource => resource.Mapped
+                ? $"'{resource.LogicalName}' (mapped to '{resource.EffectiveName}', model name '{resource.ModelName}')"
+                : $"'{resource.LogicalName}' (not mapped, model name '{resource.ModelName}')");
+
+    /// <summary>One logical index of a table with its model and effective physical names.</summary>
+    private readonly record struct EffectiveIndex(
+        string LogicalName,
+        string ModelName,
+        bool Mapped,
+        string EffectiveName);
 
     private static DynamoTableGroup FindGroup(
         IReadOnlyList<DynamoTableGroup> groups,

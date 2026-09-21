@@ -96,23 +96,29 @@ public static class DynamoEntityTypeExtensions
 
     extension(IReadOnlyEntityType entityType)
     {
-        /// <summary>Gets the logical table identity declared for this entity type.</summary>
+        /// <summary>Gets the logical table identity of the DynamoDB table this entity type is mapped to.</summary>
         /// <remarks>
-        ///     The logical table identity identifies the DynamoDB table independently of its
-        ///     environment-specific physical name. It is declared with <c>HasLogicalTableName</c> on this
-        ///     entity type or a base type, and is only needed to map a compiled model to a physical table
-        ///     at runtime with <c>RuntimeResourceNames</c>.
+        ///     <para>
+        ///         The logical table identity identifies a DynamoDB table independently of its
+        ///         environment-specific physical name, and belongs to the table, not to one entity type:
+        ///         it is the identity declared with <c>HasLogicalTableName</c> on <em>any</em> entity type
+        ///         mapped to the same table. Every entity type of a shared table therefore returns the
+        ///         same value, and an entity type mapped to a different table does not return the
+        ///         identity of its base type's table.
+        ///     </para>
+        ///     <para>
+        ///         It is only needed to map a compiled model to a physical table at runtime with
+        ///         <c>RuntimeResourceNames</c>. The call reads model metadata by scanning the model's
+        ///         entity types, so avoid it in hot paths.
+        ///     </para>
         /// </remarks>
-        /// <returns>The declared logical table identity, or <see langword="null" /> when none is declared.</returns>
+        /// <returns>The table's logical identity, or <see langword="null" /> when none is declared.</returns>
+        /// <exception cref="InvalidOperationException">
+        ///     The entity types of the table declare conflicting logical identities, which model
+        ///     validation rejects.
+        /// </exception>
         public string? GetLogicalTableName()
-        {
-            for (var current = entityType; current is not null; current = current.BaseType)
-                if (current.FindAnnotation(DynamoAnnotationNames.LogicalTableName)?.Value is string
-                    name)
-                    return name;
-
-            return null;
-        }
+            => DynamoTableGroups.ResolveLogicalTableName(entityType);
 
         /// <summary>Gets the name of the EF property that maps to the DynamoDB partition key.</summary>
         /// <remarks>
@@ -253,8 +259,11 @@ public static class DynamoEntityTypeExtensions
                     fromDataAnnotation)
                 ?.Value;
 
-        /// <summary>Returns the configuration source for the logical table identity annotation.</summary>
-        /// <returns>The configuration source, or <see langword="null" /> if no logical table identity is declared.</returns>
+        /// <summary>
+        ///     Returns the configuration source of the logical table identity declared on this entity type
+        ///     itself (not the identity resolved for its table).
+        /// </summary>
+        /// <returns>The configuration source, or <see langword="null" /> if this entity type declares none.</returns>
         public ConfigurationSource? GetLogicalTableNameConfigurationSource()
             => entityType
                 .FindAnnotation(DynamoAnnotationNames.LogicalTableName)

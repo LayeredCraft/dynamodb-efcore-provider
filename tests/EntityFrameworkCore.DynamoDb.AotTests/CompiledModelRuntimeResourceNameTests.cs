@@ -220,6 +220,52 @@ public partial class CompiledModelExecutionTests
 
     private static readonly AsyncLocal<List<string>?> CurrentStatements = new();
 
+    /// <summary>A minimal table catalog so table lifecycle calls can be exercised against the fake client.</summary>
+    private sealed class FakeTables
+    {
+        private readonly Dictionary<string, CreateTableRequest> _tables = new(StringComparer.Ordinal);
+
+        public List<CreateTableRequest> Created { get; } = [];
+
+        public List<string> Deleted { get; } = [];
+
+        public void Add(CreateTableRequest request)
+        {
+            Created.Add(request);
+            _tables[request.TableName] = request;
+        }
+
+        public bool Remove(string tableName)
+        {
+            Deleted.Add(tableName);
+            return _tables.Remove(tableName);
+        }
+
+        public TableDescription? Describe(string tableName)
+            => _tables.TryGetValue(tableName, out var request)
+                ? new TableDescription
+                {
+                    TableName = request.TableName,
+                    TableStatus = TableStatus.ACTIVE,
+                    KeySchema = request.KeySchema,
+                    AttributeDefinitions = request.AttributeDefinitions,
+                    BillingModeSummary = new BillingModeSummary { BillingMode = request.BillingMode },
+                    GlobalSecondaryIndexes = request
+                        .GlobalSecondaryIndexes
+                        ?.Select(static index => new GlobalSecondaryIndexDescription
+                        {
+                            IndexName = index.IndexName,
+                            IndexStatus = IndexStatus.ACTIVE,
+                            KeySchema = index.KeySchema,
+                            Projection = index.Projection
+                        })
+                        .ToList()
+                }
+                : null;
+    }
+
+    private static readonly AsyncLocal<FakeTables?> CurrentTables = new();
+
     private static readonly Lazy<IAmazonDynamoDB> SharedRecordingClient =
         new(CreateRecordingClient);
 
@@ -245,6 +291,46 @@ public partial class CompiledModelExecutionTests
                         .Arg<ExecuteTransactionRequest>()!
                         .TransactStatements.Select(s => Normalize(s.Statement)));
                 return Task.FromResult(new ExecuteTransactionResponse());
+            });
+        client
+            .DescribeTableAsync(Arg.Any<DescribeTableRequest>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var tableName = callInfo.Arg<DescribeTableRequest>()!.TableName;
+                var description = CurrentTables.Value?.Describe(tableName);
+                return description is null
+                    ? Task.FromException<DescribeTableResponse>(
+                        new ResourceNotFoundException($"Table '{tableName}' not found."))
+                    : Task.FromResult(new DescribeTableResponse { Table = description });
+            });
+        client
+            .CreateTableAsync(Arg.Any<CreateTableRequest>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var request = callInfo.Arg<CreateTableRequest>()!;
+                CurrentTables.Value!.Add(request);
+                return Task.FromResult(
+                    new CreateTableResponse { TableDescription = CurrentTables.Value.Describe(request.TableName) });
+            });
+        client
+            .DeleteTableAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var tableName = callInfo.Arg<string>()!;
+                return CurrentTables.Value!.Remove(tableName)
+                    ? Task.FromResult(new DeleteTableResponse { TableDescription = new TableDescription { TableName = tableName } })
+                    : Task.FromException<DeleteTableResponse>(
+                        new ResourceNotFoundException($"Table '{tableName}' not found."));
+            });
+        client
+            .DeleteTableAsync(Arg.Any<DeleteTableRequest>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var tableName = callInfo.Arg<DeleteTableRequest>()!.TableName;
+                return CurrentTables.Value!.Remove(tableName)
+                    ? Task.FromResult(new DeleteTableResponse { TableDescription = new TableDescription { TableName = tableName } })
+                    : Task.FromException<DeleteTableResponse>(
+                        new ResourceNotFoundException($"Table '{tableName}' not found."));
             });
         return client;
     }
