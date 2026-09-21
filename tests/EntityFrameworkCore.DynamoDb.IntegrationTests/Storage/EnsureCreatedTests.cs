@@ -128,6 +128,28 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task EnsureCreatedAsync_SeedsDerivedEntityTypesIntoTheirBaseTable()
+    {
+        var tableName = "ensure-created-seed-hierarchy";
+        await DeleteIfExists(tableName);
+        await using var context = CreateContext<SeedHierarchyContext>();
+
+        try
+        {
+            (await context.Database.EnsureCreatedAsync(CancellationToken)).Should().BeTrue();
+
+            // Seed data declared on a derived entity type belongs to the table of its hierarchy.
+            var rows = await context.Animals.ToListAsync(CancellationToken);
+            rows.Select(static row => row.Pk).Should().BeEquivalentTo("animal", "dog");
+        }
+        finally
+        {
+            await context.Database.EnsureDeletedAsync(CancellationToken);
+            await DeleteIfExists(tableName);
+        }
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task EnsureCreatedAsync_WaitsBeforeSeeding_WhenWaitForCompletionFalse()
     {
         var tableName = "ensure-created-seed-nowait";
@@ -557,6 +579,31 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
             });
         }
     }
+
+    public sealed class SeedHierarchyContext(DbContextOptions<SeedHierarchyContext> options)
+        : EnsureContextBase(options)
+    {
+        public DbSet<SeedAnimal> Animals => Set<SeedAnimal>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SeedAnimal>(entity =>
+            {
+                entity.ToTable("ensure-created-seed-hierarchy");
+                entity.Property(x => x.Pk).HasAttributeName("pk");
+                entity.HasPartitionKey(x => x.Pk);
+                entity.HasData(new SeedAnimal { Pk = "animal" });
+            });
+            modelBuilder.Entity<SeedDog>(entity => entity.HasData(new SeedDog { Pk = "dog" }));
+        }
+    }
+
+    public class SeedAnimal
+    {
+        public string Pk { get; set; } = string.Empty;
+    }
+
+    public sealed class SeedDog : SeedAnimal;
 
     public sealed class SeedNoWaitContext(DbContextOptions<SeedNoWaitContext> options)
         : EnsureContextBase(options)

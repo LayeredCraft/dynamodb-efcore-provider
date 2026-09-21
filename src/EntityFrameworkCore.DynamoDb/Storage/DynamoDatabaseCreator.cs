@@ -339,9 +339,7 @@ internal sealed class DynamoDatabaseCreator(
                 .Model
                 .GetEntityTypes()
                 .Any(entityType
-                    => createdTables.Contains(
-                        entityType[DynamoAnnotationNames.TableName] as string
-                        ?? entityType.ClrType.Name)
+                    => createdTables.Contains(entityType.GetTableGroupName())
                     && entityType.GetSeedData().Any());
 
     private Task InsertDataAsync(
@@ -351,8 +349,10 @@ internal sealed class DynamoDatabaseCreator(
         var updateAdapter = updateAdapterFactory.CreateStandalone();
         foreach (var entityType in designTimeModel.Model.GetEntityTypes())
         {
-            var tableName = entityType[DynamoAnnotationNames.TableName] as string
-                ?? entityType.ClrType.Name;
+            // Created tables are named by their table group, so seed data must be matched against the
+            // same name. Derived entity types belong to their base type's table, not to a table named
+            // after the derived CLR type.
+            var tableName = entityType.GetTableGroupName();
             if (!createdTables.Contains(tableName))
                 continue;
 
