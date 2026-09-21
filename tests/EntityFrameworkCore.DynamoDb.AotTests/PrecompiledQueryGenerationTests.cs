@@ -10,6 +10,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Editing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Design.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -29,7 +30,9 @@ public class PrecompiledQueryGenerationTests
     public void Generated_runtime_resolves_an_inherited_property_once()
     {
         using var context = new InheritanceContext(
-            new DbContextOptionsBuilder<InheritanceContext>().UseDynamo().Options);
+            new DbContextOptionsBuilder<InheritanceContext>()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options);
         var property = ResolveProperty(
             context.Model,
             typeof(BaseItem).FullName!,
@@ -43,7 +46,9 @@ public class PrecompiledQueryGenerationTests
     public void Generated_runtime_reports_missing_inherited_property()
     {
         using var context = new InheritanceContext(
-            new DbContextOptionsBuilder<InheritanceContext>().UseDynamo().Options);
+            new DbContextOptionsBuilder<InheritanceContext>()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options);
 
         var action = () => ResolveProperty(context.Model, typeof(BaseItem).FullName!, "Missing");
 
@@ -57,7 +62,9 @@ public class PrecompiledQueryGenerationTests
     public void Generated_runtime_resolves_properties_by_full_type_name_when_short_names_collide()
     {
         using var context = new DuplicateNameContext(
-            new DbContextOptionsBuilder<DuplicateNameContext>().UseDynamo().Options);
+            new DbContextOptionsBuilder<DuplicateNameContext>()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options);
 
         var first = ResolveProperty(
             context.Model,
@@ -210,7 +217,9 @@ public class PrecompiledQueryGenerationTests
 
         try
         {
-            var options = new DbContextOptionsBuilder().UseDynamo().Options;
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
             await using var context = (DbContext)Activator.CreateInstance(
                 assembly.GetType("GeneratedQueryTest.TestContext")!,
                 options)!;
@@ -310,7 +319,9 @@ public class PrecompiledQueryGenerationTests
                     ["tenant-2"] = Item("tenant-2", "name-2"),
                     ["tenant-3"] = Item("tenant-3", "name-3")
                 };
-                var fakeOptions = new DbContextOptionsBuilder().UseDynamo(configure
+                var fakeOptions = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo(configure
                         => configure.DynamoDbClient(
                             CompiledModelExecutionTests.CreateFakeClient(store)))
                     .Options;
@@ -561,7 +572,9 @@ public class PrecompiledQueryGenerationTests
 
         try
         {
-            var options = new DbContextOptionsBuilder().UseDynamo().Options;
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
             await using var context = (DbContext)Activator.CreateInstance(
                 assembly.GetType("GeneratedQueryTest.ScalarContext")!,
                 options)!;
@@ -616,7 +629,9 @@ public class PrecompiledQueryGenerationTests
                         ["status"] = new() { S = "Active" }
                     }
                 };
-                var fakeOptions = new DbContextOptionsBuilder().UseDynamo(configure
+                var fakeOptions = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo(configure
                         => configure.DynamoDbClient(
                             CompiledModelExecutionTests.CreateFakeClient(store)))
                     .Options;
@@ -748,7 +763,9 @@ public class PrecompiledQueryGenerationTests
 
         try
         {
-            var options = new DbContextOptionsBuilder().UseDynamo().Options;
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
             using var context = (DbContext)Activator.CreateInstance(
                 assembly.GetType("GeneratedQueryTest.TestContext")!,
                 options)!;
@@ -864,7 +881,9 @@ public class PrecompiledQueryGenerationTests
 
         try
         {
-            var options = new DbContextOptionsBuilder().UseDynamo().Options;
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
             await using var context = (DbContext)Activator.CreateInstance(
                 assembly.GetType("GeneratedQueryTest.TestContext")!,
                 options)!;
@@ -939,7 +958,9 @@ public class PrecompiledQueryGenerationTests
                                 Items = store.Values.Take(request.Limit ?? int.MaxValue).ToList()
                             });
                     });
-                var fakeOptions = new DbContextOptionsBuilder().UseDynamo(configure
+                var fakeOptions = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo(configure
                         => configure.DynamoDbClient(client))
                     .Options;
 
@@ -1060,7 +1081,9 @@ public class PrecompiledQueryGenerationTests
 
         try
         {
-            var options = new DbContextOptionsBuilder().UseDynamo().Options;
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
             using var context = (DbContext)Activator.CreateInstance(
                 assembly.GetType("GeneratedQueryTest.TestContext")!,
                 options)!;
@@ -1193,7 +1216,9 @@ public class PrecompiledQueryGenerationTests
 
         try
         {
-            var options = new DbContextOptionsBuilder().UseDynamo().Options;
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
             await using var context = (DbContext)Activator.CreateInstance(
                 assembly.GetType("GeneratedQueryTest.TestContext")!,
                 options)!;
@@ -1270,7 +1295,9 @@ public class PrecompiledQueryGenerationTests
                                 Items = store.Values.Take(request.Limit ?? int.MaxValue).ToList()
                             });
                     });
-                var fakeOptions = new DbContextOptionsBuilder().UseDynamo(configure
+                var fakeOptions = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo(configure
                         => configure.DynamoDbClient(client))
                     .Options;
 
@@ -1386,7 +1413,9 @@ public class PrecompiledQueryGenerationTests
     public void Compiled_model_primes_collection_codecs_for_native_aot()
     {
         using var context = new CollectionContext(
-            new DbContextOptionsBuilder<CollectionContext>().UseDynamo().Options);
+            new DbContextOptionsBuilder<CollectionContext>()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options);
 
         var designTimeModel = context.GetService<IDesignTimeModel>()!.Model;
         var typeMappingSource = context.GetService<ITypeMappingSource>()!;
@@ -1420,7 +1449,9 @@ public class PrecompiledQueryGenerationTests
     public void Compiled_model_primes_converted_element_collection_codecs_for_native_aot()
     {
         using var context = new CollectionContext(
-            new DbContextOptionsBuilder<CollectionContext>().UseDynamo().Options);
+            new DbContextOptionsBuilder<CollectionContext>()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options);
 
         var designTimeModel = context.GetService<IDesignTimeModel>()!.Model;
         var typeMappingSource = context.GetService<ITypeMappingSource>()!;
@@ -1453,7 +1484,9 @@ public class PrecompiledQueryGenerationTests
     public void Compiled_model_generation_fails_fast_for_converted_primitive_collections()
     {
         using var context = new ConvertedCollectionContext(
-            new DbContextOptionsBuilder<ConvertedCollectionContext>().UseDynamo().Options);
+            new DbContextOptionsBuilder<ConvertedCollectionContext>()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options);
         var designTimeModel = context.GetService<IDesignTimeModel>()!.Model;
         var typeMappingSource = context.GetService<ITypeMappingSource>()!;
         var cSharpHelper = new CSharpHelper(typeMappingSource);
@@ -1481,7 +1514,9 @@ public class PrecompiledQueryGenerationTests
     public void Primed_collection_mappings_round_trip_through_boxed_boundary()
     {
         using var context = new CollectionContext(
-            new DbContextOptionsBuilder<CollectionContext>().UseDynamo().Options);
+            new DbContextOptionsBuilder<CollectionContext>()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options);
         var entityType = context.Model.FindEntityType(typeof(CollectionItem))!;
 
         var flagsMapping = (DynamoTypeMapping)entityType.FindProperty(nameof(CollectionItem.Flags))!
@@ -1526,7 +1561,9 @@ public class PrecompiledQueryGenerationTests
     public void Primed_converted_element_collection_mappings_round_trip_through_boxed_boundary()
     {
         using var context = new CollectionContext(
-            new DbContextOptionsBuilder<CollectionContext>().UseDynamo().Options);
+            new DbContextOptionsBuilder<CollectionContext>()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options);
         var entityType = context.Model.FindEntityType(typeof(CollectionItem))!;
 
         var convertedIdsMapping =
