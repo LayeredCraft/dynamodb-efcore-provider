@@ -349,9 +349,8 @@ internal sealed class DynamoDatabaseCreator(
         var updateAdapter = updateAdapterFactory.CreateStandalone();
         foreach (var entityType in designTimeModel.Model.GetEntityTypes())
         {
-            // Created tables are named by their table group, so seed data must be matched against the
-            // same name. Derived entity types belong to their base type's table, not to a table named
-            // after the derived CLR type.
+            // Created tables are named by their effective (runtime) physical name, so seed data must be
+            // matched against the same name rather than the design-time table name.
             var tableName = entityType.GetTableGroupName();
             if (!createdTables.Contains(tableName))
                 continue;

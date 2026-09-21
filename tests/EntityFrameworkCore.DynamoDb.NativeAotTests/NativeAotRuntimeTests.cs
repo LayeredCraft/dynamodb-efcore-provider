@@ -177,54 +177,109 @@ public sealed class NativeAotRuntimeTests(DynamoFixture fixture)
     [Fact(Timeout = Timeout)]
     public async Task Precompiled_execute_delete_uses_runtime_configured_table_name()
     {
-        try
-        {
-            AotRuntimeContext.ConfigureRuntimeTableName(AotRuntimeContext.RuntimeTableName);
-            await fixture.ResetAndSeedAsync(TestContext.Current.CancellationToken);
+        await fixture.ResetAndSeedAsync(TestContext.Current.CancellationToken);
 
-            var deleted = await AotRuntimeQueries.ExecuteDeleteAsync();
-            if (deleted != 1)
-                throw new InvalidOperationException(
-                    $"Expected one deleted item, received {deleted}.");
+        var deleted = await AotRuntimeQueries.ExecuteDeleteAsync();
+        if (deleted != 1)
+            throw new InvalidOperationException($"Expected one deleted item, received {deleted}.");
 
-            var response = await fixture.Client.GetItemAsync(
-                new GetItemRequest
+        var response = await fixture.Client.GetItemAsync(
+            new GetItemRequest
+            {
+                TableName = AotRuntimeContext.RuntimeTableName,
+                Key = new Dictionary<string, AttributeValue>
                 {
-                    TableName = AotRuntimeContext.RuntimeTableName,
-                    Key = new Dictionary<string, AttributeValue>
-                    {
-                        ["pk"] = new() { S = "tenant-null" },
-                        ["sk"] = new() { S = "sk-null" }
-                    }
-                },
-                TestContext.Current.CancellationToken);
-            if (response.Item is { Count: > 0 })
-                throw new InvalidOperationException("Expected the deleted item to be absent.");
-        }
-        finally
-        {
-            AotRuntimeContext.ConfigureRuntimeTableName(AotRuntimeContext.DesignTimeTableName);
-        }
+                    ["pk"] = new() { S = "tenant-null" },
+                    ["sk"] = new() { S = "sk-null" }
+                }
+            },
+            TestContext.Current.CancellationToken);
+        if (response.Item is { Count: > 0 })
+            throw new InvalidOperationException("Expected the deleted item to be absent.");
     }
 
     [Fact(Timeout = Timeout)]
     public async Task Precompiled_query_uses_runtime_configured_table_name()
     {
-        try
-        {
-            AotRuntimeContext.ConfigureRuntimeTableName(AotRuntimeContext.RuntimeTableName);
-            await fixture.ResetAndSeedAsync(TestContext.Current.CancellationToken);
-            await fixture.SeedRuntimeMappedItemAsync(TestContext.Current.CancellationToken);
+        await fixture.ResetAndSeedAsync(TestContext.Current.CancellationToken);
+        await fixture.SeedRuntimeMappedItemAsync(TestContext.Current.CancellationToken);
 
-            var names = await AotRuntimeQueries.LoadRuntimeItemNamesAsync();
-            if (names is not ["RuntimeConfigured"])
-                throw new InvalidOperationException(
-                    "Expected the precompiled query to use the runtime-configured table name.");
-        }
-        finally
+        var names = await AotRuntimeQueries.LoadRuntimeItemNamesAsync();
+        if (names is not ["RuntimeConfigured"])
+            throw new InvalidOperationException(
+                "Expected the precompiled query to use the runtime-configured table name.");
+
+        await AssertDesignTimeResourcesWereNeverUsedAsync();
+    }
+
+    [Fact(Timeout = Timeout)]
+    public async Task Precompiled_secondary_index_query_uses_runtime_configured_index_name()
+    {
+        await fixture.ResetAndSeedAsync(TestContext.Current.CancellationToken);
+
+        // The global secondary index exists only under its runtime physical name. This query is
+        // routed to the index (automatic index selection on the index partition key), so a template
+        // that still carried the design-time index name would fail against DynamoDB.
+        var items = await AotRuntimeQueries.LoadByNameAsync("Native");
+        AssertSingleItem(items, AotRuntimeData.ExpectedNativeItem);
+    }
+
+    [Fact(Timeout = Timeout)]
+    public async Task Precompiled_explicit_index_hint_names_the_design_time_index_and_runs_on_the_runtime_index()
+    {
+        await fixture.ResetAndSeedAsync(TestContext.Current.CancellationToken);
+
+        var items = await AotRuntimeQueries.LoadByNameWithIndexHintAsync("Native");
+        AssertSingleItem(items, AotRuntimeData.ExpectedNativeItem);
+    }
+
+    [Fact(Timeout = Timeout)]
+    public async Task Write_targets_the_runtime_configured_table()
+    {
+        await fixture.ResetAndSeedAsync(TestContext.Current.CancellationToken);
+
+        await using (var context = new AotRuntimeContext())
         {
-            AotRuntimeContext.ConfigureRuntimeTableName(AotRuntimeContext.DesignTimeTableName);
+            context.Items.Add(
+                new AotRuntimeItem
+                {
+                    Pk = "written-tenant",
+                    Sk = "written-sk",
+                    Name = "Written",
+                    Status = AotRuntimeStatus.Active,
+                    RawStatus = AotRuntimeStatus.Active,
+                    Payload = [9],
+                    Aliases = []
+                });
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
+
+        var response = await fixture.Client.GetItemAsync(
+            new GetItemRequest
+            {
+                TableName = AotRuntimeContext.RuntimeTableName,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    ["pk"] = new() { S = "written-tenant" },
+                    ["sk"] = new() { S = "written-sk" }
+                }
+            },
+            TestContext.Current.CancellationToken);
+        if (response.Item is not { Count: > 0 })
+            throw new InvalidOperationException(
+                "Expected the written item in the runtime-configured table.");
+
+        await AssertDesignTimeResourcesWereNeverUsedAsync();
+    }
+
+    private async Task AssertDesignTimeResourcesWereNeverUsedAsync()
+    {
+        // Only the runtime-named table exists. Had any statement targeted the design-time table it
+        // would have failed, but assert it directly so the intent is explicit.
+        var tables = await fixture.Client.ListTablesAsync(TestContext.Current.CancellationToken);
+        if (tables.TableNames.Contains(AotRuntimeContext.DesignTimeTableName))
+            throw new InvalidOperationException(
+                "The design-time table must never have been created or used.");
     }
 
     private static void AssertSingleItem(List<AotRuntimeItem> items, AotRuntimeItem expected)

@@ -12,6 +12,15 @@ public static class DynamoEntityTypeExtensions
 {
     extension(IMutableEntityType entityType)
     {
+        /// <summary>Sets the logical table identity declared on this entity type.</summary>
+        /// <param name="name">
+        ///     The logical table identity. Pass <see langword="null" /> to clear the declaration.
+        /// </param>
+        public void SetLogicalTableName(string? name)
+            => entityType.SetOrRemoveAnnotation(
+                DynamoAnnotationNames.LogicalTableName,
+                name.NullButNotEmpty());
+
         /// <summary>Sets the DynamoDB table name for the root entity type.</summary>
         /// <param name="name">
         ///     The DynamoDB table name. Pass <see langword="null" /> to clear the explicit mapping.
@@ -87,6 +96,24 @@ public static class DynamoEntityTypeExtensions
 
     extension(IReadOnlyEntityType entityType)
     {
+        /// <summary>Gets the logical table identity declared for this entity type.</summary>
+        /// <remarks>
+        ///     The logical table identity identifies the DynamoDB table independently of its
+        ///     environment-specific physical name. It is declared with <c>HasLogicalTableName</c> on this
+        ///     entity type or a base type, and is only needed to map a compiled model to a physical table
+        ///     at runtime with <c>RuntimeResourceNames</c>.
+        /// </remarks>
+        /// <returns>The declared logical table identity, or <see langword="null" /> when none is declared.</returns>
+        public string? GetLogicalTableName()
+        {
+            for (var current = entityType; current is not null; current = current.BaseType)
+                if (current.FindAnnotation(DynamoAnnotationNames.LogicalTableName)?.Value is string
+                    name)
+                    return name;
+
+            return null;
+        }
+
         /// <summary>Gets the name of the EF property that maps to the DynamoDB partition key.</summary>
         /// <remarks>
         ///     Returns the configured partition key property annotation when present.
@@ -212,6 +239,27 @@ public static class DynamoEntityTypeExtensions
 
     extension(IConventionEntityType entityType)
     {
+        /// <summary>Sets the logical table identity at the given configuration source.</summary>
+        /// <param name="name">The logical table identity, or <see langword="null" /> to clear the declaration.</param>
+        /// <param name="fromDataAnnotation">
+        ///     <see langword="true" /> if configured via a data annotation;
+        ///     <see langword="false" /> for the fluent API.
+        /// </param>
+        /// <returns>The configured logical table identity, or <see langword="null" /> if configuration was not applied.</returns>
+        public string? SetLogicalTableName(string? name, bool fromDataAnnotation = false)
+            => (string?)entityType.SetOrRemoveAnnotation(
+                    DynamoAnnotationNames.LogicalTableName,
+                    name.NullButNotEmpty(),
+                    fromDataAnnotation)
+                ?.Value;
+
+        /// <summary>Returns the configuration source for the logical table identity annotation.</summary>
+        /// <returns>The configuration source, or <see langword="null" /> if no logical table identity is declared.</returns>
+        public ConfigurationSource? GetLogicalTableNameConfigurationSource()
+            => entityType
+                .FindAnnotation(DynamoAnnotationNames.LogicalTableName)
+                ?.GetConfigurationSource();
+
         /// <summary>Sets the DynamoDB table name at the given configuration source.</summary>
         /// <param name="name">The table name, or <see langword="null" /> to clear the explicit mapping.</param>
         /// <param name="fromDataAnnotation">

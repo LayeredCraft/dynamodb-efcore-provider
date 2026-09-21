@@ -1,5 +1,6 @@
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace EntityFrameworkCore.DynamoDb.Extensions;
@@ -63,8 +64,11 @@ internal static class DynamoModelExtensions
 
         /// <summary>Gets the effective table-group name used for shared-table DynamoDB metadata.</summary>
         internal string GetTableGroupName()
-            => entityType.FindAnnotation(DynamoAnnotationNames.TableGroupName)?.Value as string
-                ?? entityType.ComputeTableGroupName();
+            => (entityType as IAnnotatable)
+                ?.FindRuntimeAnnotation(DynamoAnnotationNames.TableGroupName)
+                ?.Value as string
+            ?? entityType.FindAnnotation(DynamoAnnotationNames.TableGroupName)?.Value as string
+            ?? entityType.ComputeTableGroupName();
 
         /// <summary>Computes the effective table-group name used for shared-table DynamoDB metadata.</summary>
         internal string ComputeTableGroupName()

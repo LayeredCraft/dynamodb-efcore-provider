@@ -32,6 +32,8 @@ public static class DynamoServiceCollectionExtensions
                 .TryAdd<IQueryContextFactory, DynamoQueryContextFactory>()
                 .TryAdd<IProviderConventionSetBuilder, DynamoConventionSetBuilder>()
                 .TryAdd<IModelValidator, DynamoModelValidator>()
+                .TryAdd<ISingletonOptions, IDynamoSingletonOptions>(p
+                    => p.GetRequiredService<IDynamoSingletonOptions>())
                 .TryAdd<IModelRuntimeInitializer, DynamoModelRuntimeInitializer>()
                 .TryAdd<ITypeMappingSource, DynamoTypeMappingSource>()
                 .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory,
@@ -42,6 +44,7 @@ public static class DynamoServiceCollectionExtensions
                     DynamoShapedQueryCompilingExpressionVisitorFactory>()
                 .TryAdd<IQueryCompilationContextFactory, DynamoQueryCompilationContextFactory>()
                 .TryAddProviderSpecificServices(services => services
+                    .TryAddSingleton<IDynamoSingletonOptions, DynamoSingletonOptions>()
                     .TryAddScoped<
                         DynamoTransactionRuntimeOptions>(_ => new DynamoTransactionRuntimeOptions())
                     .TryAddScoped<IDynamoClientWrapper, DynamoClientWrapper>()

@@ -3,6 +3,7 @@
 using EntityFrameworkCore.DynamoDb.Metadata;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Utilities;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace Microsoft.EntityFrameworkCore;
@@ -34,10 +35,17 @@ public static class DynamoIndexExtensions
 
     extension(IReadOnlyIndex index)
     {
-        /// <summary>Gets the configured DynamoDB secondary index name.</summary>
-        /// <returns>The configured name, or  when none has been configured.</returns>
+        /// <summary>Gets the effective DynamoDB secondary index name.</summary>
+        /// <returns>
+        ///     The environment-specific name applied during runtime-model initialization when one
+        ///     was configured; otherwise the name configured in the model, or  when none has been
+        ///     configured.
+        /// </returns>
         public string? GetSecondaryIndexName()
-            => index[DynamoAnnotationNames.SecondaryIndexName] as string;
+            => (index as IAnnotatable)
+                ?.FindRuntimeAnnotation(DynamoAnnotationNames.RuntimeSecondaryIndexName)
+                ?.Value as string
+            ?? index[DynamoAnnotationNames.SecondaryIndexName] as string;
 
         /// <summary>Gets the configured DynamoDB secondary index kind.</summary>
         /// <returns>The configured kind, or  when none has been configured.</returns>

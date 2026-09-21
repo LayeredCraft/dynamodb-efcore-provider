@@ -33,6 +33,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         ValidateKeyPropertyTypes(model);
         ValidateKeyPropertyNullability(model);
         ValidateTableKeySchemaConsistency(model);
+        ValidateLogicalTableNames(model);
         ValidateSecondaryIndexes(model);
         ValidateDiscriminatorMappings(model);
         ValidateConcurrencyTokenConfiguration(model);
@@ -465,6 +466,13 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             ValidateTableKeySchemaGroup(tableName, entityTypes);
         }
     }
+
+    /// <summary>
+    ///     Validates that each table has at most one logical name and that a logical name identifies
+    ///     exactly one table.
+    /// </summary>
+    private static void ValidateLogicalTableNames(IModel model)
+        => _ = DynamoTableGroups.Resolve(model);
 
     /// <summary>Validates discriminator mapping consistency for shared DynamoDB table groups.</summary>
     private static void ValidateDiscriminatorMappings(IModel model)

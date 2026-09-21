@@ -1,58 +1,54 @@
-using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace EntityFrameworkCore.DynamoDb.NativeAotTests;
 
 public sealed class AotRuntimeContext : DbContext
 {
+    // The compiled model and the precompiled query interceptors are generated with these design-time
+    // physical names. The physical names below are supplied at runtime through the supported
+    // provider API, so the same compiled artifact is configured without regenerating anything.
+    internal const string LogicalTableName = "AotRuntimeItems";
+    internal const string LogicalIndexName = "ByName";
     internal const string DesignTimeTableName = "AotRuntimeItems";
+    internal const string DesignTimeIndexName = "AotRuntimeItems-name-design";
     internal const string RuntimeTableName = "AotRuntimeConfiguredItems-runtime";
+    internal const string RuntimeIndexName = "AotRuntimeConfiguredItems-name-runtime";
 
-    internal static string TableName
-    {
-        get
-        {
-            using var context = new AotRuntimeContext();
-            return context
-                    .Model
-                    .FindEntityType(typeof(AotRuntimeItem))
-                    ?.FindAnnotation(DynamoAnnotationNames.TableName)
-                    ?.Value as string
-                ?? DesignTimeTableName;
-        }
-    }
+    /// <summary>The physical table every test in this process runs against.</summary>
+    internal const string TableName = RuntimeTableName;
 
     public DbSet<AotRuntimeItem> Items => Set<AotRuntimeItem>();
 
-    internal static void ConfigureRuntimeTableName(string tableName)
-    {
-        using var context = new AotRuntimeContext();
-        if (context.Model.FindEntityType(typeof(AotRuntimeItem)) is not RuntimeEntityType
-            entityType)
-            throw new InvalidOperationException(
-                "The generated runtime model is missing the item entity type.");
-
-        entityType.SetAnnotation(DynamoAnnotationNames.TableName, tableName);
-        entityType.SetRuntimeAnnotation(DynamoAnnotationNames.TableGroupName, tableName);
-    }
-
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        => optionsBuilder.UseDynamo(providerOptions
-            => providerOptions.ConfigureDynamoDbClientConfig(config =>
+        => optionsBuilder.UseDynamo(providerOptions =>
+        {
+            providerOptions.ConfigureDynamoDbClientConfig(config =>
             {
                 config.ServiceURL =
                     Environment.GetEnvironmentVariable(DynamoFixture.ServiceUrlEnvironmentVariable)
                     ?? "http://127.0.0.1:9";
                 config.AuthenticationRegion = "us-east-1";
-            }));
+            });
+
+            // Model and query-interceptor generation must see the design-time names only, so the
+            // runtime mapping is applied to the running application, never to the generator.
+            if (!EF.IsDesignTime)
+                providerOptions.RuntimeResourceNames(names => names
+                    .Table(LogicalTableName, RuntimeTableName)
+                    .SecondaryIndex(LogicalTableName, LogicalIndexName, RuntimeIndexName));
+        });
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<AotRuntimeItem>(entity =>
         {
-            DynamoEntityTypeBuilderExtensions.ToTable(entity, DesignTimeTableName);
+            DynamoEntityTypeBuilderExtensions
+                .ToTable(entity, DesignTimeTableName)
+                .HasLogicalTableName(LogicalTableName);
             entity.HasPartitionKey(item => item.Pk);
             DynamoEntityTypeBuilderExtensions.HasSortKey(entity, item => item.Sk);
+            entity
+                .HasGlobalSecondaryIndex(LogicalIndexName, nameof(AotRuntimeItem.Name))
+                .HasSecondaryIndexName(DesignTimeIndexName);
             entity.Property(item => item.Status).HasConversion<string>();
         });
 }
@@ -393,6 +389,27 @@ public static class AotRuntimeQueries
             .Items
             .Where(item => item.Pk == partitionKey && item.Sk == sortKey)
             .SingleOrDefaultAsync();
+    }
+
+    public static async Task<List<AotRuntimeItem>> LoadByNameAsync(string nameArg)
+    {
+        await using var context = new AotRuntimeContext();
+        var name = nameArg;
+        return await context.Items.Where(item => item.Name == name).ToListAsync();
+    }
+
+    public static async Task<List<AotRuntimeItem>> LoadByNameWithIndexHintAsync(string nameArg)
+    {
+        await using var context = new AotRuntimeContext();
+        var name = nameArg;
+        // The hint is translated against the design-time model, so it names the design-time physical
+        // index (the literal below equals AotRuntimeContext.DesignTimeIndexName); at runtime the
+        // precompiled template resolves it to the runtime physical index.
+        return await context
+            .Items
+            .WithIndex("AotRuntimeItems-name-design")
+            .Where(item => item.Name == name)
+            .ToListAsync();
     }
 
     public static async Task<List<string>> LoadRuntimeItemNamesAsync()

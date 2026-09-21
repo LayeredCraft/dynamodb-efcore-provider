@@ -50,6 +50,12 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
     /// <summary>Configures waits used by DynamoDB table lifecycle operations.</summary>
     public DynamoTableLifecycleOptions TableLifecycleOptions { get; private set; } = new();
 
+    /// <summary>
+    ///     Resolves environment-specific physical table and index names applied during runtime-model
+    ///     initialization, or <see langword="null" /> to keep the names configured in the model.
+    /// </summary>
+    internal DynamoRuntimeResourceNames? RuntimeResourceNames { get; private set; }
+
     /// <summary>Registers provider services in the EF Core internal service container.</summary>
     public void ApplyServices(IServiceCollection services) => services.AddEntityFrameworkDynamo();
 
@@ -204,6 +210,16 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
         return clone;
     }
 
+    /// <summary>Sets the mapping from logical resources to runtime physical names.</summary>
+    internal DynamoDbOptionsExtension WithRuntimeResourceNames(DynamoRuntimeResourceNames? names)
+    {
+        var clone = Clone();
+
+        clone.RuntimeResourceNames = names;
+
+        return clone;
+    }
+
     /// <summary>Creates a copy of this extension with the current option values.</summary>
     private DynamoDbOptionsExtension Clone()
         => new()
@@ -218,7 +234,8 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
             ReturnConsumedCapacity = ReturnConsumedCapacity,
             ConsistentRead = ConsistentRead,
             AllowUnsafeFilteredQueries = AllowUnsafeFilteredQueries,
-            TableLifecycleOptions = TableLifecycleOptions.Clone()
+            TableLifecycleOptions = TableLifecycleOptions.Clone(),
+            RuntimeResourceNames = RuntimeResourceNames
         };
 
     /// <summary>Represents the DynamoOptionsExtensionInfo type.</summary>
@@ -244,6 +261,7 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 hashCode.Add(Extension.MaxTransactionSize);
                 hashCode.Add(Extension.MaxBatchWriteSize);
                 hashCode.Add(Extension.AllowUnsafeFilteredQueries);
+                hashCode.Add(Extension.RuntimeResourceNames);
 
                 _serviceProviderHash = hashCode.ToHashCode();
             }
@@ -268,7 +286,10 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 && Extension.MaxTransactionSize == otherInfo.Extension.MaxTransactionSize
                 && Extension.MaxBatchWriteSize == otherInfo.Extension.MaxBatchWriteSize
                 && Extension.AllowUnsafeFilteredQueries
-                == otherInfo.Extension.AllowUnsafeFilteredQueries;
+                == otherInfo.Extension.AllowUnsafeFilteredQueries
+                && Equals(
+                    Extension.RuntimeResourceNames,
+                    otherInfo.Extension.RuntimeResourceNames);
 
         /// <summary>Provides functionality for this member.</summary>
         public override void PopulateDebugInfo(IDictionary<string, string> debugInfo)
@@ -302,6 +323,10 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
             debugInfo["DynamoDB:TableLifecycleTimeout"] =
                 Extension.TableLifecycleOptions.Timeout?.ToString("c", CultureInfo.InvariantCulture)
                 ?? "null";
+            if (Extension.RuntimeResourceNames is not null)
+                debugInfo["DynamoDB:RuntimeResourceNames"] =
+                    GetHashCode(Extension.RuntimeResourceNames);
+
             debugInfo["DynamoDB:DynamoDbClient"] = GetHashCode(Extension.DynamoDbClient);
             debugInfo["DynamoDB:DynamoDbClientConfig"] =
                 GetHashCode(Extension.DynamoDbClientConfig);
@@ -348,6 +373,9 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 + $"DynamoDbClient={Extension.DynamoDbClient is not null} "
                 + $"DynamoDbClientConfig={Extension.DynamoDbClientConfig is not null} "
                 + $"DynamoDbClientConfigAction={Extension.DynamoDbClientConfigAction is not null} ";
+
+            if (Extension.RuntimeResourceNames is not null)
+                fragment += "RuntimeResourceNames=True ";
 
             if (!TryGetClientConfigDiagnostics(out var authenticationRegion, out var serviceUrl))
                 return fragment;
