@@ -112,6 +112,41 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
         Action<DynamoTableLifecycleOptions> configure)
         => WithOption(e => e.WithTableLifecycleOptions(configure.NotNull()));
 
+    /// <summary>
+    ///     Supplies the environment-specific <b>physical resource names</b> (DynamoDB table and
+    ///     secondary-index names) for the <b>logical table and index identities</b> declared in the
+    ///     model. This is an advanced facility for compiled models.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Most applications do not need this.</b> It exists for the scenario where an EF compiled
+    ///         model (for example a Native AOT application) is generated once and promoted unchanged
+    ///         between environments whose physical table or index names differ. A compiled model bypasses
+    ///         <c>OnModelCreating</c>, and DynamoDB statements reference the physical names directly, so
+    ///         the physical names must be supplied at runtime. If you use ordinary EF model building, or
+    ///         your physical names are the same in every environment, configure them in the model with
+    ///         <c>ToTable(...)</c> and <c>HasSecondaryIndexName(...)</c> instead.
+    ///     </para>
+    ///     <para>
+    ///         The mappings are applied once when the model is initialized, before any query or write
+    ///         uses it, and are fixed for the lifetime of that model. They are not a per-request table
+    ///         switch or a tenant-routing mechanism. Calling this method again replaces the previously
+    ///         configured mappings.
+    ///     </para>
+    /// </remarks>
+    /// <param name="configure">A callback that declares the mappings.</param>
+    /// <returns>The builder for chaining.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="configure" /> is null.</exception>
+    public virtual DynamoDbContextOptionsBuilder RuntimeResourceNames(
+        Action<DynamoRuntimeResourceNamesBuilder> configure)
+    {
+        configure.NotNull();
+
+        var builder = new DynamoRuntimeResourceNamesBuilder();
+        configure(builder);
+        return WithOption(e => e.WithRuntimeResourceNames(builder.Build()));
+    }
+
     /// <summary>Updates the provider options extension with the supplied mutation action.</summary>
     protected virtual DynamoDbContextOptionsBuilder WithOption(
         Func<DynamoDbOptionsExtension, DynamoDbOptionsExtension> setAction)

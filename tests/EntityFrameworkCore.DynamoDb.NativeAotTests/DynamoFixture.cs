@@ -147,12 +147,24 @@ public sealed class DynamoFixture : IAsyncLifetime
                 AttributeDefinitions =
                 [
                     new AttributeDefinition("pk", ScalarAttributeType.S),
-                    new AttributeDefinition("sk", ScalarAttributeType.S)
+                    new AttributeDefinition("sk", ScalarAttributeType.S),
+                    new AttributeDefinition("name", ScalarAttributeType.S)
                 ],
                 KeySchema =
                 [
                     new KeySchemaElement("pk", KeyType.HASH),
                     new KeySchemaElement("sk", KeyType.RANGE)
+                ],
+                // The secondary index exists only under its runtime physical name. A query routed to
+                // the design-time index name would fail, which is what the index test proves.
+                GlobalSecondaryIndexes =
+                [
+                    new GlobalSecondaryIndex
+                    {
+                        IndexName = AotRuntimeContext.RuntimeIndexName,
+                        KeySchema = [new KeySchemaElement("name", KeyType.HASH)],
+                        Projection = new Projection { ProjectionType = ProjectionType.ALL }
+                    }
                 ]
             },
             cancellationToken);

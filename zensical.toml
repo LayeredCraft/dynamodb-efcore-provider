@@ -19,7 +19,8 @@ nav = [
     { "DbContext Options" = "configuration/dbcontext.md" },
     { "Table and Key Mapping" = "configuration/table-key-mapping.md" },
     { "Attribute Naming" = "configuration/attribute-naming.md" },
-    { "Table Lifecycle" = "configuration/lifecycle.md" }
+    { "Table Lifecycle" = "configuration/lifecycle.md" },
+    { "Runtime Resource Names" = "configuration/runtime-resource-names.md" }
   ] },
   { "Data Modeling" = [
     { "Overview" = "modeling/index.md" },

@@ -128,6 +128,97 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task EnsureCreatedAsync_UsesRuntimeResourceNames_ForTablesIndexesSeedingAndDelete()
+    {
+        var designTable = "ensure-created-runtime-design";
+        var actualTable = "ensure-created-runtime-actual";
+        await DeleteIfExists(designTable);
+        await DeleteIfExists(actualTable);
+        await using var context = CreateContext<RuntimeNamedContext>(options
+            => options.RuntimeResourceNames(names => names
+                .Table("RuntimeNamed", actualTable)
+                .SecondaryIndex("RuntimeNamed", "ByCustomer", "ensure-created-runtime-actual-gsi")));
+
+        try
+        {
+            (await context.Database.EnsureCreatedAsync(CancellationToken)).Should().BeTrue();
+
+            // The table and its index are created under the runtime physical names, never the
+            // design-time names the model was configured with.
+            var table = await DescribeTable(actualTable);
+            table
+                .GlobalSecondaryIndexes
+                .Should()
+                .ContainSingle(index => index.IndexName == "ensure-created-runtime-actual-gsi");
+            var designTableExists = true;
+            try
+            {
+                await DescribeTable(designTable);
+            }
+            catch (ResourceNotFoundException)
+            {
+                designTableExists = false;
+            }
+
+            designTableExists.Should().BeFalse();
+
+            // Seed data must land in the table that was created, not be skipped because its
+            // design-time name differs from the created table's name.
+            var seeded = await context.Items.Where(x => x.Pk == "seeded").ToListAsync(CancellationToken);
+            seeded.Should().ContainSingle().Which.Customer.Should().Be("customer");
+
+            // Writes and index queries use the runtime names as well.
+            context.Items.Add(new RuntimeNamedItem { Pk = "written", Customer = "other" });
+            await context.SaveChangesAsync(CancellationToken);
+            var byIndex = await context
+                .Items
+                .Where(x => x.Customer == "other")
+                .ToListAsync(CancellationToken);
+            byIndex.Should().ContainSingle().Which.Pk.Should().Be("written");
+        }
+        finally
+        {
+            await context.Database.EnsureDeletedAsync(CancellationToken);
+        }
+
+        var stillExists = true;
+        try
+        {
+            await DescribeTable(actualTable);
+        }
+        catch (ResourceNotFoundException)
+        {
+            stillExists = false;
+        }
+
+        stillExists.Should().BeFalse("EnsureDeletedAsync must delete the runtime-named table");
+        await DeleteIfExists(designTable);
+        await DeleteIfExists(actualTable);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task EnsureCreatedAsync_SeedsDerivedEntityTypesIntoTheirBaseTable()
+    {
+        var tableName = "ensure-created-seed-hierarchy";
+        await DeleteIfExists(tableName);
+        await using var context = CreateContext<SeedHierarchyContext>();
+
+        try
+        {
+            (await context.Database.EnsureCreatedAsync(CancellationToken)).Should().BeTrue();
+
+            // Seed data declared on a derived entity type belongs to the table of its hierarchy.
+            var rows = await context.Animals.ToListAsync(CancellationToken);
+            rows.Select(static row => row.Pk).Should().BeEquivalentTo("animal", "dog");
+        }
+        finally
+        {
+            await context.Database.EnsureDeletedAsync(CancellationToken);
+            await DeleteIfExists(tableName);
+        }
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task EnsureCreatedAsync_WaitsBeforeSeeding_WhenWaitForCompletionFalse()
     {
         var tableName = "ensure-created-seed-nowait";
@@ -557,6 +648,57 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
             });
         }
     }
+
+    public sealed class RuntimeNamedContext(DbContextOptions<RuntimeNamedContext> options)
+        : EnsureContextBase(options)
+    {
+        public DbSet<RuntimeNamedItem> Items => Set<RuntimeNamedItem>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<RuntimeNamedItem>(entity =>
+            {
+                entity.ToTable("ensure-created-runtime-design").HasLogicalTableName("RuntimeNamed");
+                entity.Property(x => x.Pk).HasAttributeName("pk");
+                entity.Property(x => x.Customer).HasAttributeName("customer");
+                entity.HasPartitionKey(x => x.Pk);
+                entity
+                    .HasGlobalSecondaryIndex("ByCustomer", x => x.Customer)
+                    .HasSecondaryIndexName("ensure-created-runtime-design-gsi");
+                entity.HasData(new RuntimeNamedItem { Pk = "seeded", Customer = "customer" });
+            });
+    }
+
+    public sealed class RuntimeNamedItem
+    {
+        public string Pk { get; set; } = string.Empty;
+
+        public string Customer { get; set; } = string.Empty;
+    }
+
+    public sealed class SeedHierarchyContext(DbContextOptions<SeedHierarchyContext> options)
+        : EnsureContextBase(options)
+    {
+        public DbSet<SeedAnimal> Animals => Set<SeedAnimal>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SeedAnimal>(entity =>
+            {
+                entity.ToTable("ensure-created-seed-hierarchy");
+                entity.Property(x => x.Pk).HasAttributeName("pk");
+                entity.HasPartitionKey(x => x.Pk);
+                entity.HasData(new SeedAnimal { Pk = "animal" });
+            });
+            modelBuilder.Entity<SeedDog>(entity => entity.HasData(new SeedDog { Pk = "dog" }));
+        }
+    }
+
+    public class SeedAnimal
+    {
+        public string Pk { get; set; } = string.Empty;
+    }
+
+    public sealed class SeedDog : SeedAnimal;
 
     public sealed class SeedNoWaitContext(DbContextOptions<SeedNoWaitContext> options)
         : EnsureContextBase(options)
