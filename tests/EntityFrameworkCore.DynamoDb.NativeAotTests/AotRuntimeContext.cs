@@ -432,4 +432,23 @@ public static class AotRuntimeQueries
             .Where(item => item.Pk == partitionKey && item.Sk == sortKey)
             .ExecuteDeleteAsync();
     }
+
+    public static async Task<int> ExecuteUpdateNameAsync()
+    {
+        await using var context = new AotRuntimeContext();
+        return await context
+            .Items
+            .Where(item => item.Pk == "tenant-1" && item.Sk == "sk-1")
+            .ExecuteUpdateAsync(setters => setters.SetProperty(item => item.Name, "Updated"));
+    }
+
+    public static async Task<int> ExecuteUpdateCountAsync()
+    {
+        await using var context = new AotRuntimeContext();
+        return await context
+            .Items
+            .Where(item => item.Pk == "tenant-1" && item.Sk == "sk-1")
+            .ExecuteUpdateAsync(setters
+                => setters.SetProperty(item => item.Count, item => item.Count + 1));
+    }
 }
