@@ -10,6 +10,7 @@ using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Design.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -33,6 +34,7 @@ public partial class CompiledModelExecutionTests
     {
         var runtimeOptions = new DbContextOptionsBuilder<CompiledCollectionContext>()
             .UseDynamo()
+            .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
         using var runtimeContext = new CompiledCollectionContext(runtimeOptions);
         var designTimeModel = runtimeContext.GetService<IDesignTimeModel>()!.Model;
@@ -92,6 +94,7 @@ public partial class CompiledModelExecutionTests
             var options = new DbContextOptionsBuilder<CompiledCollectionContext>()
                 .UseDynamo(configure => configure.DynamoDbClient(fakeClient))
                 .UseModel(compiledModel!)
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .Options;
 
             var expected = new CompiledCollectionItem(
