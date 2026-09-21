@@ -38,8 +38,8 @@ public static class DynamoIndexExtensions
         /// <summary>Gets the effective DynamoDB secondary index name.</summary>
         /// <returns>
         ///     The environment-specific name applied during runtime-model initialization when one
-        ///     was configured; otherwise the name configured in the model, or  when none has been
-        ///     configured.
+        ///     was configured; otherwise the name configured in the model, or <see langword="null" />
+        ///     when none has been configured.
         /// </returns>
         public string? GetSecondaryIndexName()
             => (index as IAnnotatable)

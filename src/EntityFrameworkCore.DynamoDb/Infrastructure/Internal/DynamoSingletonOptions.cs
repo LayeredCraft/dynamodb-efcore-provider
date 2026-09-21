@@ -29,14 +29,14 @@ internal sealed class DynamoSingletonOptions : IDynamoSingletonOptions
             .FindExtension<DynamoDbOptionsExtension>()
             ?.RuntimeResourceNames;
 
-    /// <inheritdoc />
+    /// <remarks>
+    ///     Intentionally does nothing. The runtime resource names are part of
+    ///     <see cref="DynamoDbOptionsExtension.DynamoOptionsExtensionInfo" />'s service-provider hash
+    ///     and equality, so a differently configured context never reaches this instance. A compiled
+    ///     model shared between differently configured contexts is rejected by
+    ///     <see cref="DynamoModelRuntimeInitializer" />.
+    /// </remarks>
     public void Validate(IDbContextOptions options)
     {
-        var configured = options.FindExtension<DynamoDbOptionsExtension>()?.RuntimeResourceNames;
-        if (!Equals(configured, RuntimeResourceNames))
-            throw new InvalidOperationException(
-                "The DynamoDB runtime resource-name configuration changed for a context that shares "
-                + "an EF internal service provider with a differently configured context. Runtime "
-                + "resource names are fixed for the lifetime of the initialized model.");
     }
 }

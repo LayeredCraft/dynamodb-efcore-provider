@@ -101,6 +101,12 @@ where it would use reflection that is not supported under NativeAOT.
 See [Precompiled Queries and NativeAOT](querying/precompiled-queries.md) for supported setup and
 verification.
 
+### Runtime resource names and `WithIndex`
+
+When [runtime resource names](configuration/runtime-resource-names.md) are configured, a precompiled
+query that calls `WithIndex` keeps the physical index name from design time; it is not remapped. See
+[Runtime resource names](configuration/runtime-resource-names.md) for the supported patterns.
+
 ## Database lifecycle
 
 - `SaveChanges` never creates DynamoDB tables. Call `EnsureCreatedAsync` explicitly or provision

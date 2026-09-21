@@ -472,6 +472,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     ///     exactly one table.
     /// </summary>
     private static void ValidateLogicalTableNames(IModel model)
+        // Resolve throws on conflicting or duplicated logical identities; the result is not needed here.
         => _ = DynamoTableGroups.Resolve(model);
 
     /// <summary>Validates discriminator mapping consistency for shared DynamoDB table groups.</summary>
