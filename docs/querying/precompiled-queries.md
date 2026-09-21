@@ -77,6 +77,13 @@ Generated read templates resolve DynamoDB table and secondary-index names from t
 model. Runtime resource-name configuration is honored by precompiled queries; generated write
 templates resolve the table name for `ExecuteUpdateAsync` and `ExecuteDeleteAsync`.
 
+An EF compiled model contains the physical names it was generated with and bypasses
+`OnModelCreating`. If, and only if, the physical names differ between the environments you promote one
+artifact through, supply them with `UseDynamo(o => o.RuntimeResourceNames(...))`, which applies them
+to the runtime model when it is initialized. Precompiled queries then use them without regenerating
+anything. This is an advanced facility, not a general recommendation; see
+[Runtime Resource Names](../configuration/runtime-resource-names.md).
+
 The explicit `IEnumerable<T>` cast avoids the compiler selecting a span-based `Contains` overload
 for local arrays, which EF Core's query precompiler cannot currently translate.
 

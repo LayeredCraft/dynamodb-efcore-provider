@@ -131,6 +131,12 @@ The sentinel key must use the table's real partition key. Grant this check only 
 permission it needs. Keep that readiness check separate from liveness: a liveness endpoint should
 only report whether the process is running, so a transient DynamoDB failure does not restart it.
 
+## Runtime resource names
+
+If you use the advanced [runtime resource names](runtime-resource-names.md) facility, tables and global secondary
+indexes are created, validated, seeded and deleted under their runtime physical names, not the
+design-time names configured in the model.
+
 ## Seeding
 
 `HasData` model seed data is inserted only for entity types mapped to tables created by the current

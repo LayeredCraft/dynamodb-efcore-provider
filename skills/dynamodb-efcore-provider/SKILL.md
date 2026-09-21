@@ -43,6 +43,10 @@ against `https://dynamodb-ef-core.layeredcraft.dev/`.
   bulk/multi-row operation, and do not suggest string concatenation or sync `ExecuteUpdate`.
 - `ExecuteDeleteAsync` is a singleton key-targeted delete returning 0 or 1 — never present it as a
   bulk/multi-row operation or suggest synchronous `ExecuteDelete`.
+- `RuntimeResourceNames` and `HasLogicalTableName` are an advanced facility for EF compiled models
+  and NativeAOT applications whose physical table/index names differ between environments. Do not
+  present them as a general best practice; ordinary applications configure names with `ToTable(...)`
+  and `HasSecondaryIndexName(...)`.
 - Do not invent DynamoMapper hook or converter signatures. Read its focused reference first.
 - Do not expose PartiQL, keys, parameters, or returned items through logs, traces, or interceptors.
 

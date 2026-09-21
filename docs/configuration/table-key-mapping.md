@@ -57,6 +57,10 @@ If you need to clear a previously configured table name, call:
 b.ToTable(null);
 ```
 
+`ToTable(...)` is the physical DynamoDB table name, and this is the normal way to configure it. Only if
+you use a compiled model or NativeAOT **and** the physical name differs between environments do you
+need anything more; see the advanced [Runtime Resource Names](runtime-resource-names.md) facility.
+
 ## Partition Key
 
 Every DynamoDB table has a partition key.

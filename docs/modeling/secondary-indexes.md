@@ -12,8 +12,14 @@ _Global Secondary Indexes (GSIs) and Local Secondary Indexes (LSIs) let you quer
 GSIs are always declared explicitly — the provider never infers them. A GSI can have a partition
 key only, or a partition key and a sort key.
 
-For `HasGlobalSecondaryIndex(...)`, the first string argument is the required index name. This is
-the name used by `.WithIndex("name")` when targeting the index in queries.
+For `HasGlobalSecondaryIndex(...)`, the first string argument is the required index name. It is the EF
+model name of the index and, unless you override it, also the DynamoDB index name used by
+`.WithIndex("name")` when targeting the index in queries. To give the index a different physical
+DynamoDB name, call `HasSecondaryIndexName("physical-name")`; the first argument then stays the
+logical identity of the index. You only need the distinction for the advanced case of a compiled model
+whose physical index names differ between environments; see
+[Runtime Resource Names](../configuration/runtime-resource-names.md). Otherwise, the physical name is
+all you configure.
 
 Partition key only:
 
