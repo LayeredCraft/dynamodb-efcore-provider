@@ -45,6 +45,22 @@ public sealed class NativeAotRuntimeTests(DynamoFixture fixture)
     }
 
     [Fact(Timeout = Timeout)]
+    public async Task Complex_collection_and_complex_property_materialize_through_generated_interceptor()
+    {
+        await fixture.SeedComplexQuestionAsync(TestContext.Current.CancellationToken);
+
+        var questions = await AotRuntimeQueries.LoadQuestionsAsync();
+
+        if (questions is not [var question]
+            || question.Details.Summary != "first"
+            || question.Details.Level != 3
+            || question.Answers is not
+                [{ Text: "yes", IsCorrect: true }, { Text: "no", IsCorrect: false }])
+            throw new InvalidOperationException(
+                "The generated query did not materialize the complex property and collection.");
+    }
+
+    [Fact(Timeout = Timeout)]
     public async Task Converted_enum_parameter_query_executes()
     {
         await fixture.ResetAndSeedAsync(TestContext.Current.CancellationToken);

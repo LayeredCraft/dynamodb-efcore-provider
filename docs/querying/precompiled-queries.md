@@ -133,8 +133,11 @@ for local arrays, which EF Core's query precompiler cannot currently translate.
 - The tested NativeAOT path covers entity materialization with string, nullable numeric, Boolean,
     binary, converted scalar, and one-dimensional array properties with non-nullable elements.
     Entity materialization requiring a read from a non-public mapped field is not supported. This
-    includes mutable field-backed `List<T>`, `HashSet<T>`, and `Dictionary<string, T>` properties,
-    and may include auto-properties when EF Core chooses their backing field. See
+    includes mutable field-backed primitive `List<T>`, `HashSet<T>`, and `Dictionary<string, T>`
+    properties, and may include auto-properties when EF Core chooses their backing field. Entities
+    with complex properties and complex collections materialize, but under NativeAOT they must be
+    queried with `AsNoTracking()` until EF Core supports change tracking for complex collections in
+    compiled models (dotnet/efcore#37750). See
     [Limitations](../limitations.md) before using NativeAOT with collection-valued entity members.
 - `ExecuteUpdateAsync` is precompilable under the same rules: the setter property selectors must
     be discoverable statically, and the normal key-targeting restrictions apply. On EF Core 10 a

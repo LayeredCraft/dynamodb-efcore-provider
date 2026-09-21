@@ -121,11 +121,12 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
     /// </summary>
     protected override Expression VisitNew(NewExpression node)
     {
-        // Check if this is a MaterializationContext construction (entity materialization)
-        // by checking if the first argument type is ValueBuffer
+        // Check if this is a MaterializationContext construction (entity materialization) whose
+        // ValueBuffer argument is only a placeholder: either a projection binding, or the empty
+        // ValueBuffer constant that complex-type element materializers are created with.
         if (node.Arguments.Count > 0
-            && node.Arguments[0] is ProjectionBindingExpression pbe
-            && pbe.Type == typeof(ValueBuffer))
+            && node.Type == typeof(MaterializationContext)
+            && IsValueBufferPlaceholder(node.Arguments[0]))
         {
             // The buffer is never read: scalar values come from the DynamoDB item dictionary.
             // Generated code needs an addressable field to pass the buffer by readonly reference.
@@ -983,6 +984,15 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         Expression CreateThrow(string message)
             => Throw(New(InvalidOperationExceptionCtor, Constant(message)), type);
     }
+
+    private static bool IsValueBufferPlaceholder(Expression argument)
+        => argument switch
+        {
+            ProjectionBindingExpression projectionBinding
+                => projectionBinding.Type == typeof(ValueBuffer),
+            ConstantExpression { Value: ValueBuffer { IsEmpty: true } } => true,
+            _ => false
+        };
 
     private Expression CreateEmptyValueBufferExpression()
     {

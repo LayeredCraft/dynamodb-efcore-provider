@@ -14,10 +14,14 @@ public sealed class AotRuntimeContext : DbContext
     internal const string RuntimeTableName = "AotRuntimeConfiguredItems-runtime";
     internal const string RuntimeIndexName = "AotRuntimeConfiguredItems-name-runtime";
 
+    internal const string QuestionsTableName = "AotRuntimeQuestions";
+
     /// <summary>The physical table every test in this process runs against.</summary>
     internal const string TableName = RuntimeTableName;
 
     public DbSet<AotRuntimeItem> Items => Set<AotRuntimeItem>();
+
+    public DbSet<AotRuntimeQuestion> Questions => Set<AotRuntimeQuestion>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         => optionsBuilder.UseDynamo(providerOptions =>
@@ -39,7 +43,21 @@ public sealed class AotRuntimeContext : DbContext
         });
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
-        => modelBuilder.Entity<AotRuntimeItem>(entity =>
+    {
+        // Default property-access mode on purpose: precompiled complex-collection materialization
+        // must work without UsePropertyAccessMode(PreferProperty).
+        modelBuilder.Entity<AotRuntimeQuestion>(entity =>
+        {
+            // Its own table: sharing the items table would add a discriminator filter to every
+            // items query. Not part of the runtime resource-name mapping.
+            DynamoEntityTypeBuilderExtensions.ToTable(entity, QuestionsTableName);
+            entity.HasPartitionKey(question => question.Pk);
+            DynamoEntityTypeBuilderExtensions.HasSortKey(entity, question => question.Sk);
+            entity.ComplexProperty(question => question.Details);
+            entity.ComplexCollection(question => question.Answers);
+        });
+
+        modelBuilder.Entity<AotRuntimeItem>(entity =>
         {
             DynamoEntityTypeBuilderExtensions
                 .ToTable(entity, DesignTimeTableName)
@@ -51,6 +69,7 @@ public sealed class AotRuntimeContext : DbContext
                 .HasSecondaryIndexName(DesignTimeIndexName);
             entity.Property(item => item.Status).HasConversion<string>();
         });
+    }
 }
 
 public sealed class AotRuntimeItem
@@ -255,6 +274,20 @@ public static class AotRuntimeQueries
         return await context
             .Items
             .Where(item => ((IEnumerable<string>)partitionKeys).Contains(item.Pk))
+            .ToListAsync();
+    }
+
+    public static async Task<List<AotRuntimeQuestion>> LoadQuestionsAsync()
+    {
+        await using var context = new AotRuntimeContext();
+        string partitionKey = "question-tenant";
+
+        // No-tracking: EF Core's compiled model does not yet include the value factories the change
+        // tracker needs for complex collections under NativeAOT (dotnet/efcore#37750).
+        return await context
+            .Questions
+            .AsNoTracking()
+            .Where(question => question.Pk == partitionKey)
             .ToListAsync();
     }
 

@@ -815,6 +815,319 @@ public class PrecompiledQueryGenerationTests
         }
     }
 
+    // Default property-access mode on purpose: complex-collection initialization only writes the
+    // collection field, so it must precompile without UsePropertyAccessMode(PreferProperty).
+    // The complex property shares the empty-ValueBuffer rewrite with complex-collection elements.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Generated_interceptor_materializes_complex_collection_and_complex_property()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<TestItem> Items => Set<TestItem>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                  {
+                                      modelBuilder.Entity<TestItem>(entity =>
+                                      {
+                                          entity.HasPartitionKey(item => item.Pk);
+                                          entity.ComplexProperty(item => item.Details);
+                                          entity.ComplexCollection(item => item.Answers);
+                                      });
+                                  }
+                              }
+
+                              public sealed class TestItem
+                              {
+                                  public string Pk { get; set; } = null!;
+                                  public string Name { get; set; } = null!;
+                                  public TestDetails Details { get; set; } = new();
+                                  public List<TestAnswer> Answers { get; set; } = [];
+                              }
+
+                              public sealed class TestDetails
+                              {
+                                  public string Summary { get; set; } = null!;
+                                  public int Level { get; set; }
+                              }
+
+                              public sealed class TestAnswer
+                              {
+                                  public string Text { get; set; } = null!;
+                                  public bool IsCorrect { get; set; }
+                              }
+
+                              public static class QueryContainer
+                              {
+                                  public static async Task<List<string>> ExecuteEntitySummaries(
+                                      DbContextOptions options)
+                                  {
+                                      await using var context = new TestContext(options);
+                                      var items = await context.Items
+                                          .Where(item => item.Pk == "tenant-1")
+                                          .ToListAsync();
+
+                                      return items
+                                          .Select(item => item.Pk
+                                              + "|" + item.Details.Summary
+                                              + "|" + item.Details.Level
+                                              + "|" + string.Join(
+                                                  ",",
+                                                  item.Answers.Select(answer
+                                                      => answer.Text + ":" + answer.IsCorrect)))
+                                          .ToList();
+                                  }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "GeneratedQueryTest.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            generatedFiles.Should().NotBeEmpty();
+            var generatedCode =
+                string.Join(Environment.NewLine, generatedFiles.Select(file => file.Code));
+            // Every MaterializationContext, including complex-type element materializers, must
+            // pass an addressable empty ValueBuffer: `in default(ValueBuffer)` does not compile.
+            generatedCode.Should().Contain("dynamoEmptyValueBuffer");
+            generatedCode.Should().NotContain("in default(ValueBuffer)");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                generatedFiles.Select(file
+                    => CSharpSyntaxTree.ParseText(file.Code, parseOptions, file.Path)));
+            AssertCompilationSucceeded(generatedCompilation);
+            generatedCompilation
+                .GetDiagnostics()
+                .Where(diagnostic
+                    => diagnostic.Severity >= DiagnosticSeverity.Warning
+                    && InterceptorWarningIds.Contains(diagnostic.Id))
+                .Should()
+                .BeEmpty();
+
+            var (generatedLoadContext, generatedAssembly) = EmitAndLoad(generatedCompilation);
+            try
+            {
+                var store = new Dictionary<string, Dictionary<string, AttributeValue>>
+                {
+                    ["tenant-1"] = new()
+                    {
+                        ["pk"] = new() { S = "tenant-1" },
+                        ["name"] = new() { S = "name-1" },
+                        ["$type"] = new() { S = "TestItem" },
+                        ["details"] = new()
+                        {
+                            M = new()
+                            {
+                                ["summary"] = new() { S = "first" },
+                                ["level"] = new() { N = "3" }
+                            }
+                        },
+                        ["answers"] = new()
+                        {
+                            L =
+                            [
+                                new()
+                                {
+                                    M = new()
+                                    {
+                                        ["text"] = new() { S = "yes" },
+                                        ["isCorrect"] = new() { BOOL = true }
+                                    }
+                                },
+                                new()
+                                {
+                                    M = new()
+                                    {
+                                        ["text"] = new() { S = "no" },
+                                        ["isCorrect"] = new() { BOOL = false }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                };
+                var fakeOptions = new DbContextOptionsBuilder()
+                    // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
+                    .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                    .UseDynamo(configure
+                        => configure.DynamoDbClient(
+                            CompiledModelExecutionTests.CreateFakeClient(store)))
+                    .Options;
+
+                var summaries =
+                    (List<string>)(await InvokeQueryAsync(
+                            generatedAssembly,
+                            "ExecuteEntitySummaries",
+                            fakeOptions)
+                        ?? throw new InvalidOperationException(
+                            "ExecuteEntitySummaries returned null."));
+                summaries.Should().Equal("tenant-1|first|3|yes:True,no:False");
+            }
+            finally
+            {
+                generatedLoadContext.Unload();
+            }
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    // A complex collection on the same entity must not mask a genuine unsupported field read:
+    // the primitive-collection backing-field check stays in force for every other member.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Precompiled_generation_still_rejects_primitive_collection_field_reads_next_to_complex_collections()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<TestItem> Items => Set<TestItem>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                  {
+                                      modelBuilder.Entity<TestItem>(entity =>
+                                      {
+                                          entity.HasPartitionKey(item => item.Pk);
+                                          entity.ComplexCollection(item => item.Answers);
+                                      });
+                                  }
+                              }
+
+                              public sealed class TestItem
+                              {
+                                  public string Pk { get; set; } = null!;
+                                  public List<string> Tags { get; set; } = [];
+                                  public List<TestAnswer> Answers { get; set; } = [];
+                              }
+
+                              public sealed class TestAnswer
+                              {
+                                  public string Text { get; set; } = null!;
+                              }
+
+                              public static class QueryContainer
+                              {
+                                  public static async Task<List<TestItem>> ExecuteEntities(
+                                      DbContextOptions options)
+                                  {
+                                      await using var context = new TestContext(options);
+                                      return await context.Items
+                                          .Where(item => item.Pk == "tenant-1")
+                                          .ToListAsync();
+                                  }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "GeneratedQueryTest.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            string message;
+            try
+            {
+                _ = new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+                errors.Should().NotBeEmpty();
+                message = string.Join(
+                    Environment.NewLine,
+                    errors.Select(error => error.Exception.Message));
+            }
+            catch (NotSupportedException exception)
+            {
+                message = exception.Message;
+            }
+
+            message.Should().Contain("backing field");
+            message.Should().Contain("TestItem.<Tags>k__BackingField");
+            message.Should().NotContain("Answers");
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
     // Regression coverage for the C# 14 extension-block precompiler defect: EF Core's upstream
     // precompiler could not resolve any method declared inside DynamoDbQueryableExtensions'
     // former `extension<TEntity>(...)` block (reported as "Couldn't find nested type '`1' on
