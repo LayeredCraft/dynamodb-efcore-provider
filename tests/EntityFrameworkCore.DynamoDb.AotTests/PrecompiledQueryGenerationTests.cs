@@ -31,6 +31,7 @@ public class PrecompiledQueryGenerationTests
     {
         using var context = new InheritanceContext(
             new DbContextOptionsBuilder<InheritanceContext>()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo().Options);
         var property = ResolveProperty(
@@ -47,6 +48,7 @@ public class PrecompiledQueryGenerationTests
     {
         using var context = new InheritanceContext(
             new DbContextOptionsBuilder<InheritanceContext>()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo().Options);
 
@@ -63,6 +65,7 @@ public class PrecompiledQueryGenerationTests
     {
         using var context = new DuplicateNameContext(
             new DbContextOptionsBuilder<DuplicateNameContext>()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo().Options);
 
@@ -218,6 +221,7 @@ public class PrecompiledQueryGenerationTests
         try
         {
             var options = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo().Options;
             await using var context = (DbContext)Activator.CreateInstance(
@@ -320,6 +324,7 @@ public class PrecompiledQueryGenerationTests
                     ["tenant-3"] = Item("tenant-3", "name-3")
                 };
                 var fakeOptions = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo(configure
                         => configure.DynamoDbClient(
@@ -573,6 +578,7 @@ public class PrecompiledQueryGenerationTests
         try
         {
             var options = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo().Options;
             await using var context = (DbContext)Activator.CreateInstance(
@@ -630,6 +636,7 @@ public class PrecompiledQueryGenerationTests
                     }
                 };
                 var fakeOptions = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo(configure
                         => configure.DynamoDbClient(
@@ -764,6 +771,7 @@ public class PrecompiledQueryGenerationTests
         try
         {
             var options = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo().Options;
             using var context = (DbContext)Activator.CreateInstance(
@@ -882,6 +890,7 @@ public class PrecompiledQueryGenerationTests
         try
         {
             var options = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo().Options;
             await using var context = (DbContext)Activator.CreateInstance(
@@ -959,6 +968,7 @@ public class PrecompiledQueryGenerationTests
                             });
                     });
                 var fakeOptions = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo(configure
                         => configure.DynamoDbClient(client))
@@ -1082,6 +1092,7 @@ public class PrecompiledQueryGenerationTests
         try
         {
             var options = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo().Options;
             using var context = (DbContext)Activator.CreateInstance(
@@ -1217,6 +1228,7 @@ public class PrecompiledQueryGenerationTests
         try
         {
             var options = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo().Options;
             await using var context = (DbContext)Activator.CreateInstance(
@@ -1296,6 +1308,7 @@ public class PrecompiledQueryGenerationTests
                             });
                     });
                 var fakeOptions = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo(configure
                         => configure.DynamoDbClient(client))
@@ -1414,6 +1427,7 @@ public class PrecompiledQueryGenerationTests
     {
         using var context = new CollectionContext(
             new DbContextOptionsBuilder<CollectionContext>()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo().Options);
 
@@ -1450,6 +1464,7 @@ public class PrecompiledQueryGenerationTests
     {
         using var context = new CollectionContext(
             new DbContextOptionsBuilder<CollectionContext>()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo().Options);
 
@@ -1485,6 +1500,7 @@ public class PrecompiledQueryGenerationTests
     {
         using var context = new ConvertedCollectionContext(
             new DbContextOptionsBuilder<ConvertedCollectionContext>()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo().Options);
         var designTimeModel = context.GetService<IDesignTimeModel>()!.Model;
@@ -1515,6 +1531,7 @@ public class PrecompiledQueryGenerationTests
     {
         using var context = new CollectionContext(
             new DbContextOptionsBuilder<CollectionContext>()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo().Options);
         var entityType = context.Model.FindEntityType(typeof(CollectionItem))!;
@@ -1562,6 +1579,7 @@ public class PrecompiledQueryGenerationTests
     {
         using var context = new CollectionContext(
             new DbContextOptionsBuilder<CollectionContext>()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo().Options);
         var entityType = context.Model.FindEntityType(typeof(CollectionItem))!;

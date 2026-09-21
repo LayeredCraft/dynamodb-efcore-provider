@@ -139,6 +139,7 @@ public class PrecompiledParityTests
             await using var designContext = (DbContext)Activator.CreateInstance(
                 interpreterAssembly.GetType("GeneratedQueryTest.ParityContext")!,
                 new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo().Options)!;
             using var workspace = new AdhocWorkspace();
@@ -175,6 +176,7 @@ public class PrecompiledParityTests
                     var (interpreterClient, interpreterStatements) =
                         CreateCapturingFakeClient(interpreterStore);
                     var interpreterOptions = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo(configure
                             => configure.DynamoDbClient(interpreterClient))
@@ -188,6 +190,7 @@ public class PrecompiledParityTests
                     var (precompiledClient, precompiledStatements) =
                         CreateCapturingFakeClient(precompiledStore);
                     var precompiledOptions = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo(configure
                             => configure.DynamoDbClient(precompiledClient))

@@ -30,6 +30,7 @@ public partial class CompiledModelExecutionTests
                         .Table("Life", "life-real-table")
                         .SecondaryIndex("Life", "ByOwner", "life-real-gsi")))
                 .UseModel(compiled.Model)
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings
                     => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .Options);

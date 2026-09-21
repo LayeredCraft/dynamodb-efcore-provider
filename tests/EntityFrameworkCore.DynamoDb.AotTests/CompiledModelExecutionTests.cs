@@ -34,6 +34,7 @@ public partial class CompiledModelExecutionTests
     {
         var runtimeOptions = new DbContextOptionsBuilder<CompiledCollectionContext>()
             .UseDynamo()
+            // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
             .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
         using var runtimeContext = new CompiledCollectionContext(runtimeOptions);
@@ -94,6 +95,7 @@ public partial class CompiledModelExecutionTests
             var options = new DbContextOptionsBuilder<CompiledCollectionContext>()
                 .UseDynamo(configure => configure.DynamoDbClient(fakeClient))
                 .UseModel(compiledModel!)
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
                 .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .Options;
 

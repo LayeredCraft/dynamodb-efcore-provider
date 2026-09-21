@@ -199,6 +199,7 @@ public partial class CompiledModelExecutionTests
                 if (map is not null)
                     configure.RuntimeResourceNames(map);
             })
+            // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
             .ConfigureWarnings(warnings
                 => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
         if (compiledModel is not null)
