@@ -1,4 +1,7 @@
+using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -42,7 +45,7 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
             suffix,
             cancellationToken);
 
-        var modelClrTypeNames = CollectModelClrTypeNames(dbContext.Model);
+        var accessorMembers = BuildAccessorMemberTable(dbContext.Model);
 
         foreach (var generatedFile in generatedFiles)
             generatedFile.Code = RewriteUnsafeAccessorTypes(
@@ -51,59 +54,144 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
                         RewriteExecutorPreamble(generatedFile.Code, generatedFile.Path)),
                     compilation,
                     cancellationToken),
-                modelClrTypeNames);
+                compilation,
+                accessorMembers);
 
         return generatedFiles;
     }
 
     /// <summary>
-    ///     Every CLR type EF Core maps as an entity type or a complex type (recursively through
-    ///     complex properties and complex collections), as the accessor-name prefix EF Core's
-    ///     translator derives from it (<c>UnsafeAccessor_{Namespace_with_underscores}_{TypeName}_</c>)
-    ///     paired with its fully qualified name.
+    ///     A CLR member (field, method, or constructor) reachable from the <see cref="DbContext" />'s
+    ///     model - either directly declared on an entity/complex type, or on a complex type reached
+    ///     recursively through complex properties/collections - that EF Core's precompiled-query
+    ///     generator could plausibly need an <c>[UnsafeAccessor]</c> for.
+    /// </summary>
+    private readonly record struct AccessorMember(
+        UnsafeAccessorKind Kind,
+        Type DeclaringType,
+        FieldInfo? Field,
+        MethodBase? Method,
+        bool ForWrite)
+    {
+        public int ParameterCount => Kind switch
+        {
+            UnsafeAccessorKind.Method => Method!.GetParameters().Length,
+            UnsafeAccessorKind.Constructor => Method!.GetParameters().Length,
+            _ => 0
+        };
+
+        public string MemberName => Kind switch
+        {
+            UnsafeAccessorKind.Field => Field!.Name,
+            UnsafeAccessorKind.Constructor => "<ctor>",
+            _ => Method!.Name
+        };
+    }
+
+    /// <summary>
+    ///     Builds a table, keyed by the exact <c>[UnsafeAccessor]</c> method name EF Core's
+    ///     translator would generate for each member, of every field/method/constructor declared
+    ///     directly on a CLR type the model maps as an entity type or a complex type (recursively
+    ///     through complex properties and complex collections).
     /// </summary>
     /// <remarks>
-    ///     EF Core's precompiled-query generator accumulates <c>[UnsafeAccessor]</c> declarations
-    ///     across every source file in the compilation in one unscoped, per-run set (an upstream
-    ///     defect: private, non-virtual state on <c>LinqToCSharpSyntaxTranslator</c> that is never
-    ///     reset between files - see the fix comment on <see cref="RewriteUnsafeAccessorTypes" />).
-    ///     A generated file can therefore contain an accessor for an entity type that only some
-    ///     other file's queries touch, and whose namespace this file never imports. Keyed by
-    ///     accessor-name prefix rather than by simple type name, so two model types that happen to
-    ///     share a simple name across namespaces (see <see cref="RewriteUnsafeAccessorTypes" />)
-    ///     each still resolve to their own fully qualified name.
+    ///     <para>
+    ///         EF Core's precompiled-query generator accumulates <c>[UnsafeAccessor]</c>
+    ///         declarations across every source file in the compilation in one unscoped, per-run set
+    ///         (an upstream defect: private, non-virtual state on
+    ///         <c>LinqToCSharpSyntaxTranslator</c> that is never reset between files). A generated
+    ///         file can therefore contain an accessor for a member that only some other file's
+    ///         queries touch, and whose declaring/member types this file's <c>using</c> directives
+    ///         never import.
+    ///     </para>
+    ///     <para>
+    ///         The generated accessor method's own name is the only correlation available once the
+    ///         file has been generated (EF Core's internal per-member dictionaries that would give
+    ///         an authoritative answer are private and never surfaced). That name is built by EF Core
+    ///         as <c>UnsafeAccessor_{Namespace_with_underscores}_{DeclaringTypeName}_{MemberName}</c>
+    ///         (plus <c>_Get</c>/<c>_Set</c> for fields) - replacing every <c>.</c> in the namespace
+    ///         with <c>_</c> is lossy (<c>A_B.C</c> and <c>A.B_C</c> both encode to <c>A_B_C</c>), so
+    ///         this table is built by recomputing that exact same (lossy) name for every reachable
+    ///         member and grouping by it, rather than by trying to parse the namespace back out of a
+    ///         generated name. A generated name that maps to more than one table entry is a real,
+    ///         EF Core-generated ambiguity - see <c>ResolveAccessorMember</c>.
+    ///     </para>
     /// </remarks>
-    private static List<(string AccessorNamePrefix, string SimpleName, string QualifiedName)> CollectModelClrTypeNames(
-        IModel model)
+    private static Dictionary<string, List<AccessorMember>> BuildAccessorMemberTable(IModel model)
     {
-        var names = new List<(string, string, string)>();
+        const BindingFlags declaredInstanceMembers =
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+
+        var table = new Dictionary<string, List<AccessorMember>>(StringComparer.Ordinal);
         var seenTypes = new HashSet<Type>();
 
         foreach (var entityType in model.GetEntityTypes())
             AddTypeBase(entityType);
 
-        return names;
+        return table;
 
         void AddTypeBase(IReadOnlyTypeBase typeBase)
         {
-            if (!AddType(typeBase.ClrType))
+            if (!seenTypes.Add(typeBase.ClrType))
                 return;
+
+            AddMembers(typeBase.ClrType);
 
             foreach (var complexProperty in typeBase.GetComplexProperties())
                 AddTypeBase(complexProperty.ComplexType);
         }
 
-        bool AddType(Type type)
+        void AddMembers(Type type)
         {
-            if (type.Namespace is null || !seenTypes.Add(type))
-                return false;
+            foreach (var field in type.GetFields(declaredInstanceMembers))
+            {
+                var memberNamePart = GetFieldAccessorNamePart(field);
+                Add(BuildAccessorMethodName(type, memberNamePart, "_Get"),
+                    new AccessorMember(UnsafeAccessorKind.Field, type, field, null, false));
+                Add(BuildAccessorMethodName(type, memberNamePart, "_Set"),
+                    new AccessorMember(UnsafeAccessorKind.Field, type, field, null, true));
+            }
 
-            names.Add((
-                $"UnsafeAccessor_{type.Namespace.Replace('.', '_')}_{type.Name}_",
-                type.Name,
-                $"global::{type.Namespace}.{type.Name}"));
-            return true;
+            foreach (var method in type.GetMethods(declaredInstanceMembers))
+                Add(BuildAccessorMethodName(type, method.Name, suffix: null),
+                    new AccessorMember(UnsafeAccessorKind.Method, type, null, method, false));
+
+            foreach (var constructor in type.GetConstructors(declaredInstanceMembers))
+                Add(BuildAccessorMethodName(type, "Ctor", suffix: null),
+                    new AccessorMember(UnsafeAccessorKind.Constructor, type, null, constructor, false));
         }
+
+        void Add(string accessorMethodName, AccessorMember member)
+        {
+            if (!table.TryGetValue(accessorMethodName, out var candidates))
+                table[accessorMethodName] = candidates = [];
+            candidates.Add(member);
+        }
+    }
+
+    // Mirrors LinqToCSharpSyntaxTranslator.GetUnsafeAccessorDeclaration's backing-field-to-property-name
+    // extraction exactly (an auto-property's compiler-generated "<Name>k__BackingField" becomes "Name"),
+    // since that is the member-name component EF Core's generated accessor name encodes for fields.
+    private static string GetFieldAccessorNamePart(FieldInfo field)
+    {
+        var name = field.Name;
+        return name.Length > 0
+            && name[0] == '<'
+            && name.IndexOf(">k__BackingField", StringComparison.Ordinal) is > 1 and var backingFieldMarker
+            ? name[1..backingFieldMarker]
+            : name;
+    }
+
+    // Mirrors LinqToCSharpSyntaxTranslator.GetUnsafeAccessorDeclaration's own name-building exactly,
+    // including its lossy namespace-to-underscore folding - see BuildAccessorMemberTable's remarks.
+    private static string BuildAccessorMethodName(Type declaringType, string memberNamePart, string? suffix)
+    {
+        var name = new StringBuilder("UnsafeAccessor_");
+        if (declaringType.Namespace is { } declaringNamespace)
+            name.Append(declaringNamespace.Replace('.', '_')).Append('_');
+
+        name.Append(declaringType.Name).Append('_').Append(memberNamePart);
+        return suffix is null ? name.ToString() : name.Append(suffix).ToString();
     }
 
     private static string RewriteGeneratedFilePreamble(string code)
@@ -201,87 +289,212 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
     }
 
     /// <summary>
-    ///     Fully qualifies the parameter and return types of every <c>[UnsafeAccessor]</c>-attributed
-    ///     method declaration in the generated file.
+    ///     Fully qualifies every CLR type occurring anywhere in the signature (receiver, return/
+    ///     ref-return, and parameter types) of every <c>[UnsafeAccessor]</c>-attributed method
+    ///     declaration in the generated file.
     /// </summary>
     /// <remarks>
     ///     EF Core's precompiled-query generator collects these declarations in a single,
     ///     per-compilation-run set on an internal, non-virtual translator instance rather than
     ///     resetting it per generated file (upstream defect - not something a provider can fix via
-    ///     inheritance). A file can therefore contain an accessor for an entity type that only some
-    ///     other file's own queries reference, and this file's `using` directives never import that
-    ///     type's namespace. Fully qualifying every accessor's types, using the CLR type names
-    ///     collected from the model itself, makes each file self-contained and correct regardless of
-    ///     which other files happened to generate first, and disambiguates two model types that
-    ///     happen to share a simple name.
+    ///     inheritance). A file can therefore contain an accessor for a member that only some other
+    ///     file's own queries reference, and this file's <c>using</c> directives never import that
+    ///     member's declaring or value type. Fully qualifying every CLR type referenced by such a
+    ///     declaration - not merely its declaring type - using the actual reflected member located
+    ///     via <c>ResolveAccessorMember</c>, makes each file self-contained and correct
+    ///     regardless of which other files happened to generate first.
     /// </remarks>
     private static string RewriteUnsafeAccessorTypes(
         string code,
-        IReadOnlyList<(string AccessorNamePrefix, string SimpleName, string QualifiedName)> modelClrTypeNames)
+        Compilation compilation,
+        IReadOnlyDictionary<string, List<AccessorMember>> accessorMembers)
     {
         var tree = CSharpSyntaxTree.ParseText(code);
         var root = tree.GetCompilationUnitRoot();
-        var rewriter = new UnsafeAccessorTypeQualifyingRewriter(modelClrTypeNames);
+        var rewriter = new UnsafeAccessorTypeQualifyingRewriter(compilation, accessorMembers);
         var rewrittenRoot = rewriter.Visit(root);
         return rewrittenRoot == root ? code : rewrittenRoot.ToFullString();
     }
 
     private sealed class UnsafeAccessorTypeQualifyingRewriter(
-        IReadOnlyList<(string AccessorNamePrefix, string SimpleName, string QualifiedName)> modelClrTypeNames)
-        : CSharpSyntaxRewriter
+        Compilation compilation,
+        IReadOnlyDictionary<string, List<AccessorMember>> accessorMembers) : CSharpSyntaxRewriter
     {
         public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
         {
             if (!HasUnsafeAccessorAttribute(node))
                 return base.VisitMethodDeclaration(node);
 
-            // Every [UnsafeAccessor] method EF Core generates here is for exactly one model CLR
-            // type: its own name encodes that type unambiguously
-            // (UnsafeAccessor_{Namespace_with_underscores}_{TypeName}_{member}), even when that
-            // type's simple name collides with another model type's. Resolve this method's own
-            // type from its own name, rather than by simple name across the whole file, so a
-            // collision cannot cause the wrong type - or no type - to be substituted.
-            var methodName = node.Identifier.Text;
-            var declaringType = modelClrTypeNames.FirstOrDefault(entry
-                => methodName.StartsWith(entry.AccessorNamePrefix, StringComparison.Ordinal));
-            if (declaringType.QualifiedName is null)
+            if (!accessorMembers.TryGetValue(node.Identifier.Text, out var candidates) || candidates.Count == 0)
                 return base.VisitMethodDeclaration(node);
 
-            var rewrittenReturnType = (TypeSyntax)VisitTypeIfKnown(node.ReturnType, declaringType);
-            var rewrittenParameters = node.ParameterList.Parameters
-                .Select(parameter => parameter.Type is { } parameterType
-                    ? parameter.WithType((TypeSyntax)VisitTypeIfKnown(parameterType, declaringType))
-                    : parameter);
+            var member = ResolveAccessorMember(node, candidates);
+            var parameters = node.ParameterList.Parameters;
 
-            return node
-                .WithReturnType(rewrittenReturnType)
-                .WithParameterList(node.ParameterList.WithParameters([.. rewrittenParameters]));
+            switch (member.Kind)
+            {
+                case UnsafeAccessorKind.Field:
+                {
+                    var rewrittenInstance = parameters[0]
+                        .WithType(QualifyPreservingShape(parameters[0].Type!, member.DeclaringType));
+                    return node
+                        .WithReturnType(QualifyPreservingShape(node.ReturnType, member.Field!.FieldType))
+                        .WithParameterList(
+                            node.ParameterList.WithParameters(
+                                SyntaxFactory.SingletonSeparatedList(rewrittenInstance)));
+                }
+
+                case UnsafeAccessorKind.Method:
+                {
+                    var method = (MethodInfo)member.Method!;
+                    var methodParameters = method.GetParameters();
+                    var rewrittenParameters = parameters.Select((parameter, index) => parameter.WithType(
+                        QualifyPreservingShape(
+                            parameter.Type!,
+                            // Parameter 0 is the synthesized "instance" receiver, not one of the
+                            // member's own declared parameters.
+                            index == 0 ? member.DeclaringType : methodParameters[index - 1].ParameterType)));
+                    return node
+                        .WithReturnType(QualifyPreservingShape(node.ReturnType, method.ReturnType))
+                        .WithParameterList(node.ParameterList.WithParameters([.. rewrittenParameters]));
+                }
+
+                case UnsafeAccessorKind.Constructor:
+                {
+                    var constructorParameters = ((ConstructorInfo)member.Method!).GetParameters();
+                    var rewrittenParameters = parameters.Select((parameter, index) => parameter.WithType(
+                        QualifyPreservingShape(parameter.Type!, constructorParameters[index].ParameterType)));
+                    return node
+                        .WithReturnType(QualifyPreservingShape(node.ReturnType, member.DeclaringType))
+                        .WithParameterList(node.ParameterList.WithParameters([.. rewrittenParameters]));
+                }
+
+                default:
+                    throw new UnreachableException($"Unexpected unsafe-accessor kind: {member.Kind}");
+            }
+        }
+
+        /// <summary>
+        ///     Identifies which reflected member a generated <c>[UnsafeAccessor]</c> method
+        ///     declaration corresponds to, when EF Core's lossy namespace-to-underscore name folding
+        ///     (see <see cref="BuildAccessorMemberTable" />) has produced more than one candidate for
+        ///     the same generated name.
+        /// </summary>
+        /// <remarks>
+        ///     A field accessor's declaration shape never varies by the field's own type (always
+        ///     exactly one "instance" parameter), so two colliding field candidates cannot be told
+        ///     apart from the generated syntax at all - not even by which of two duplicate-looking
+        ///     declarations appears first in the file, since that reflects EF Core's own internal,
+        ///     unobservable iteration order, not anything recoverable from the generated text. Method
+        ///     and constructor overloads sharing a generated name, however, differ in parameter count,
+        ///     which the declaration's own parameter list already states - a fact read directly off
+        ///     the generated syntax, not a guess - so those are resolved by that count when it alone
+        ///     narrows the candidates to one. Anything still ambiguous after that is a genuine,
+        ///     EF Core-generated naming collision this provider cannot safely resolve, and is reported
+        ///     as such rather than bound to an arbitrary candidate.
+        /// </remarks>
+        private static AccessorMember ResolveAccessorMember(
+            MethodDeclarationSyntax node,
+            List<AccessorMember> candidates)
+        {
+            if (candidates.Count == 1)
+                return candidates[0];
+
+            // The declaration's own parameter list includes the synthesized "instance" receiver in
+            // addition to the member's declared parameters for methods, but not for constructors.
+            var declaredParameterCount = node.ParameterList.Parameters.Count;
+            var narrowed = candidates.Where(candidate => candidate.Kind switch
+            {
+                UnsafeAccessorKind.Method => candidate.ParameterCount + 1 == declaredParameterCount,
+                UnsafeAccessorKind.Constructor => candidate.ParameterCount == declaredParameterCount,
+                _ => false
+            }).ToList();
+
+            if (narrowed.Count == 1)
+                return narrowed[0];
+
+            throw new InvalidOperationException(
+                $"EF Core generated an unsafe-accessor method named '{node.Identifier.Text}' that this "
+                + $"provider cannot unambiguously attribute to a single CLR member. EF Core encodes a "
+                + "member's declaring-type namespace into the generated name by replacing '.' with '_', "
+                + "which collides for more than one of the following: "
+                + string.Join(
+                    "; ",
+                    candidates.Select(candidate
+                        => $"'{candidate.DeclaringType.FullName}.{candidate.MemberName}'"))
+                + ". Rename one of these namespaces (or the affected members) so their encoded names no "
+                + "longer collide.");
         }
 
         private static bool HasUnsafeAccessorAttribute(MethodDeclarationSyntax method) => method.AttributeLists
             .SelectMany(static list => list.Attributes)
             .Any(static attribute => attribute.Name.ToString() is "UnsafeAccessor" or "UnsafeAccessorAttribute");
 
-        // Only rewrites the type shapes EF Core's translator actually emits here (a bare type name,
-        // a nullable annotation over one, a ref return, or an array element type) - not full general
-        // type-syntax traversal, since only entity/complex CLR types (never a generic or pointer
-        // type) appear as unsafe-accessor parameter/return types. Rewrites only occurrences of the
-        // method's own declaring type, identified above - never any other model type's simple name
-        // that might otherwise appear (for example a constructor accessor's own parameter list).
-        private static SyntaxNode VisitTypeIfKnown(
-            TypeSyntax type,
-            (string AccessorNamePrefix, string SimpleName, string QualifiedName) declaringType) => type switch
+        // Preserves the `ref` (write accessors for fields) and reference-nullable annotation `?`
+        // exactly as EF Core's translator emitted them for this position - both are syntax-level
+        // decisions independent of the fully-qualified replacement substituted here (nullable
+        // *reference* annotations have no runtime System.Type representation at all, and a nullable
+        // *value* type - Nullable<T> - is rendered as part of clrType itself by TypeQualifier).
+        private TypeSyntax QualifyPreservingShape(TypeSyntax originalSyntax, Type clrType)
         {
-            IdentifierNameSyntax identifier when identifier.Identifier.Text == declaringType.SimpleName =>
-                SyntaxFactory.ParseTypeName(declaringType.QualifiedName).WithTriviaFrom(identifier),
-            NullableTypeSyntax nullable =>
-                nullable.WithElementType((TypeSyntax)VisitTypeIfKnown(nullable.ElementType, declaringType)),
-            RefTypeSyntax refType =>
-                refType.WithType((TypeSyntax)VisitTypeIfKnown(refType.Type, declaringType)),
-            ArrayTypeSyntax array =>
-                array.WithElementType((TypeSyntax)VisitTypeIfKnown(array.ElementType, declaringType)),
-            _ => type
-        };
+            // ParseTypeName produces a bare node with no leading/trailing trivia (no indentation, no
+            // separating space before whatever token follows it, e.g. the parameter name or method
+            // name) - carry over the original node's trivia so the replacement doesn't run into its
+            // neighboring token.
+            TypeSyntax rewritten = originalSyntax switch
+            {
+                RefTypeSyntax refType => refType.WithType(QualifyPreservingShape(refType.Type, clrType)),
+                NullableTypeSyntax when clrType is { IsValueType: false } =>
+                    SyntaxFactory.NullableType(TypeQualifier.ToFullyQualifiedTypeSyntax(compilation, clrType)),
+                _ => TypeQualifier.ToFullyQualifiedTypeSyntax(compilation, clrType)
+            };
+            return rewritten.WithTriviaFrom(originalSyntax);
+        }
+    }
+
+    /// <summary>
+    ///     Renders a reflection <see cref="Type" /> as a fully qualified <see cref="TypeSyntax" />
+    ///     (arrays, generic/constructed-generic types with their own type arguments, nested types,
+    ///     nullable value types, and escaped/keyword-colliding identifiers all included), by
+    ///     resolving it to a Roslyn <see cref="ITypeSymbol" /> against the query-building
+    ///     compilation and formatting that symbol with <see cref="SymbolDisplayFormat.FullyQualifiedFormat" /> -
+    ///     Roslyn's own established mechanism for this, rather than a hand-built string.
+    /// </summary>
+    private static class TypeQualifier
+    {
+        public static TypeSyntax ToFullyQualifiedTypeSyntax(Compilation compilation, Type type) =>
+            SyntaxFactory.ParseTypeName(
+                ResolveSymbol(compilation, type).ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+
+        private static ITypeSymbol ResolveSymbol(Compilation compilation, Type type)
+        {
+            if (type.IsArray)
+                return compilation.CreateArrayTypeSymbol(
+                    ResolveSymbol(compilation, type.GetElementType()!), type.GetArrayRank());
+
+            if (Nullable.GetUnderlyingType(type) is { } underlyingType)
+                return ResolveNamedSymbol(compilation, typeof(Nullable<>))
+                    .Construct(ResolveSymbol(compilation, underlyingType));
+
+            if (type.IsGenericType && !type.IsGenericTypeDefinition)
+                return ResolveNamedSymbol(compilation, type.GetGenericTypeDefinition())
+                    .Construct([.. type.GetGenericArguments().Select(argument => ResolveSymbol(compilation, argument))]);
+
+            return ResolveNamedSymbol(compilation, type);
+        }
+
+        private static INamedTypeSymbol ResolveNamedSymbol(Compilation compilation, Type type)
+        {
+            var metadataName = type.FullName
+                ?? throw new InvalidOperationException(
+                    $"Type '{type}' has no metadata name and cannot be fully qualified in a generated "
+                    + "unsafe-accessor declaration.");
+
+            return compilation.GetTypeByMetadataName(metadataName)
+                ?? throw new InvalidOperationException(
+                    $"Could not resolve type '{metadataName}' against the query-building compilation "
+                    + "while fully qualifying a generated unsafe-accessor declaration.");
+        }
     }
 
     [GeneratedRegex(
