@@ -44,6 +44,16 @@ collection.
 Field-only properties can hit the same limitation. Basic scalar properties and arrays are covered
 by the native runtime tests because their materialization uses a field write, not a field read.
 
+On **EF Core 10 only**, a precompiled no-tracking query fails to generate valid C# when its
+entity type is declared in any namespace (the ordinary case): the generator names a local variable
+after the entity type's *full* CLR name, which is invalid C# once that name contains a dot. This
+reproduces for any no-tracking query, not only ones over complex collections, and we found no
+workaround short of declaring the entity type in the global namespace — not something applications
+should be expected to do. EF Core 11 does not exhibit it, and we found no existing upstream issue
+for it. This provider's own NativeAOT test suite works around it by declaring its complex-collection
+entity type in the global namespace, so that suite exercises the fix without exercising this
+separate EF Core 10 defect.
+
 Query execution is asynchronous only. Synchronous query operators and enumeration throw
 `InvalidOperationException`; use `ToListAsync`, `FirstAsync`, `ToPageAsync`, or
 `AsAsyncEnumerable`.
@@ -78,8 +88,12 @@ Precompiled queries that materialize entities containing complex properties and 
 NativeAOT, query these entities with `AsNoTracking()`: EF Core's compiled model does not yet include
 the value factories its change tracker needs for complex collections, so a tracked query fails at
 runtime with "Model building is not supported when publishing with NativeAOT" (tracked upstream:
-[dotnet/efcore#37750](https://github.com/dotnet/efcore/issues/37750)). Filtering on or projecting
-complex members in precompiled queries is not covered by the tested NativeAOT path, and such shapes
+[dotnet/efcore#37750](https://github.com/dotnet/efcore/issues/37750)). On EF Core 10, that
+requirement runs into the precompiled no-tracking limitation above for any entity type declared in
+a normal namespace.
+
+Filtering on or projecting complex members in precompiled queries is not covered by the tested
+NativeAOT path, and such shapes
 can fail during `dotnet publish` with an EF Core generated-code error.
 
 Primitive-collection properties materialize their codec from compiled-model generated code under

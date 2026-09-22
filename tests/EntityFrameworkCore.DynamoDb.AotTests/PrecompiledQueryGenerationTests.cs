@@ -1016,6 +1016,115 @@ public class PrecompiledQueryGenerationTests
         }
     }
 
+    // Regression coverage for an EF Core 10-only precompiler defect discovered while validating
+    // the complex-collection fixes above (not caused by this provider): a precompiled no-tracking
+    // query generates a local variable named after the entity type's full CLR name, which is
+    // invalid C# once that name contains a dot (i.e. the entity type is declared in any
+    // namespace — the ordinary case). This is unrelated to complex collections; it reproduces for
+    // any no-tracking query. EF Core 11 does not exhibit it. See docs/limitations.md.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Precompiled_no_tracking_query_over_namespaced_entity_reflects_ef_core_10_defect()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<TestItem> Items => Set<TestItem>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                      => modelBuilder.Entity<TestItem>(entity
+                                          => entity.HasPartitionKey(item => item.Pk));
+                              }
+
+                              public sealed class TestItem
+                              {
+                                  public string Pk { get; set; } = null!;
+                              }
+
+                              public static class QueryContainer
+                              {
+                                  public static async Task<List<TestItem>> ExecuteNoTracking(
+                                      DbContextOptions options)
+                                  {
+                                      await using var context = new TestContext(options);
+                                      return await context.Items
+                                          .AsNoTracking()
+                                          .Where(item => item.Pk == "tenant-1")
+                                          .ToListAsync();
+                                  }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "GeneratedQueryTest.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            generatedFiles.Should().NotBeEmpty();
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                generatedFiles.Select(file
+                    => CSharpSyntaxTree.ParseText(file.Code, parseOptions, file.Path)));
+            var compileErrors = generatedCompilation
+                .GetDiagnostics()
+                .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+                .ToList();
+
+#if NET10_0
+            // Locks in the known EF Core 10 defect so this test starts failing (prompting removal
+            // of the workaround and this comment) the day EF Core fixes it upstream.
+            compileErrors.Should().NotBeEmpty();
+            compileErrors.Select(diagnostic => diagnostic.Id).Should().Contain("CS1003");
+#else
+            AssertCompilationSucceeded(generatedCompilation);
+#endif
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
     // A complex collection on the same entity must not mask a genuine unsupported field read:
     // the primitive-collection backing-field check stays in force for every other member.
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
