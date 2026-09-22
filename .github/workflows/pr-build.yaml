@@ -15,7 +15,7 @@ jobs:
     # Standard multi-targeting (net10.0;net11.0): a single Debug build/test pass already
     # validates both EF lines, no per-EF matrix needed. See
     # docs/internal/ef11-native-aot-implementation-plan.md.
-    uses: LayeredCraft/devops-templates/.github/workflows/pr-build.yaml@7d587b6a23afca8815fd94a4a3d246857b3db08d
+    uses: LayeredCraft/devops-templates/.github/workflows/pr-build.yaml@07d4436f16fd9556b05458c1cddd9b50de24cde4
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx
       hasTests: true
@@ -36,8 +36,8 @@ jobs:
           - targetFramework: net11.0
             dotnetVersion: "11.0.x"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ matrix.dotnetVersion }}
       - name: Write single-TFM override
@@ -69,8 +69,8 @@ jobs:
           - targetFramework: net11.0
             dotnetVersion: "11.0.x"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ matrix.dotnetVersion }}
       - run: dotnet restore tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj -p:TargetFrameworks="${{ matrix.targetFramework }}"
