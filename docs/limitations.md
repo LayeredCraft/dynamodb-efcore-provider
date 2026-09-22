@@ -32,14 +32,25 @@ property-level value converters composed over the collection itself are rejected
 generation time.
 
 NativeAOT precompiled queries do not currently support entity materialization that requires EF Core
-to read a non-public mapped field. This includes mutable field-backed collection properties such as
-`List<T>`, `HashSet<T>`, and `Dictionary<string, T>`; auto-properties are affected when EF Core
-selects their backing field. The current EF Core generated field-read accessor is invalid in
-NativeAOT. Keep those collection or dictionary values out of entities materialized by precompiled
-NativeAOT queries until EF Core resolves the issue.
+to read a non-public mapped field. This includes mutable field-backed primitive collection
+properties such as `List<T>`, `HashSet<T>`, and `Dictionary<string, T>`; auto-properties are
+affected when EF Core selects their backing field. The current EF Core generated field-read
+accessor is invalid in NativeAOT. Keep those collection or dictionary values out of entities
+materialized by precompiled NativeAOT queries until EF Core resolves the issue, or configure
+`UsePropertyAccessMode(PropertyAccessMode.PreferProperty)` so materialization goes through the
+property setter. Complex collections are not affected: materializing them only writes the
+collection.
 
 Field-only properties can hit the same limitation. Basic scalar properties and arrays are covered
 by the native runtime tests because their materialization uses a field write, not a field read.
+
+On **EF Core 10 only**, a precompiled no-tracking query fails to generate valid C# when its
+entity type is declared in any namespace (the ordinary case): the generator names a local variable
+after the entity type's *full* CLR name, which is invalid C# once that name contains a dot. This
+reproduces for any no-tracking query, not only ones over complex collections, and we found no
+workaround short of declaring the entity type in the global namespace — not something applications
+should be expected to do. EF Core 11 does not exhibit it, and we found no existing upstream issue
+for it.
 
 Query execution is asynchronous only. Synchronous query operators and enumeration throw
 `InvalidOperationException`; use `ToListAsync`, `FirstAsync`, `ToPageAsync`, or
@@ -70,9 +81,18 @@ Core C#-to-LINQ translator before provider translation — this one *is* an inte
 error, not a runtime fallback. Use supported query shapes, or run either of these query shapes
 without precompilation.
 
-Precompiled-query generation upstream of the provider cannot handle complex-type members: a query
-that materializes or filters on a complex property fails during `dotnet publish` with an EF Core
-generated-code error. Avoid complex properties in contexts precompiled for NativeAOT.
+Precompiled queries that materialize entities containing complex properties and complex collections
+(`List<T>` or `IList<T>`) are supported, including with the default property access mode. Under
+NativeAOT, query these entities with `AsNoTracking()`: EF Core's compiled model does not yet include
+the value factories its change tracker needs for complex collections, so a tracked query fails at
+runtime with "Model building is not supported when publishing with NativeAOT" (tracked upstream:
+[dotnet/efcore#37750](https://github.com/dotnet/efcore/issues/37750)). On EF Core 10, that
+requirement runs into the precompiled no-tracking limitation above for any entity type declared in
+a normal namespace.
+
+Filtering on or projecting complex members in precompiled queries is not covered by the tested
+NativeAOT path, and such shapes can fail during `dotnet publish` with an EF Core generated-code
+error.
 
 Primitive-collection properties materialize their codec from compiled-model generated code under
 NativeAOT. A primitive-collection property that also carries a property-level value converter is

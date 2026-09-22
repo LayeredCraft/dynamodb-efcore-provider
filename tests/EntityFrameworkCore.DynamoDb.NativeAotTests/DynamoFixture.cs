@@ -97,6 +97,54 @@ public sealed class DynamoFixture : IAsyncLifetime
             },
             cancellationToken);
 
+    // Written through the raw client so the test exercises only the precompiled read path.
+    public async Task SeedComplexQuestionAsync(CancellationToken cancellationToken = default)
+    {
+        await RecreateTableAsync(AotRuntimeContext.QuestionsTableName, cancellationToken);
+        await Client.PutItemAsync(
+            new PutItemRequest
+            {
+                TableName = AotRuntimeContext.QuestionsTableName,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    ["pk"] = new() { S = "question-tenant" },
+                    ["sk"] = new() { S = "question-1" },
+                    ["$type"] = new() { S = nameof(AotRuntimeQuestion) },
+                    ["details"] = new()
+                    {
+                        M = new Dictionary<string, AttributeValue>
+                        {
+                            ["summary"] = new() { S = "first" },
+                            ["level"] = new() { N = "3" }
+                        }
+                    },
+                    ["answers"] = new()
+                    {
+                        L =
+                        [
+                            new()
+                            {
+                                M = new Dictionary<string, AttributeValue>
+                                {
+                                    ["text"] = new() { S = "yes" },
+                                    ["isCorrect"] = new() { BOOL = true }
+                                }
+                            },
+                            new()
+                            {
+                                M = new Dictionary<string, AttributeValue>
+                                {
+                                    ["text"] = new() { S = "no" },
+                                    ["isCorrect"] = new() { BOOL = false }
+                                }
+                            }
+                        ]
+                    }
+                }
+            },
+            cancellationToken);
+    }
+
     public async Task<string?> BootstrapNextTokenAsync(
         string partitionKey,
         int pageSize,

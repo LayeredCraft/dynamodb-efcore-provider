@@ -659,6 +659,20 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             return base.VisitBinary(node);
         }
 
+        protected override Expression VisitExtension(Expression node)
+        {
+            // At validation time the complex-collection marker has not yet been lowered into an
+            // assignment. Its MemberAccess is that assignment's write target, so it is not a read:
+            // only the element materializer (which may nest further markers) can read fields.
+            if (node is DynamoComplexCollectionInitializationExpression complexCollectionInit)
+            {
+                Visit(complexCollectionInit.ElementInjectedMaterializer);
+                return node;
+            }
+
+            return base.VisitExtension(node);
+        }
+
         protected override Expression VisitMember(MemberExpression node)
         {
             if (node.Member is FieldInfo field

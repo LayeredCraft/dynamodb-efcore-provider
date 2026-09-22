@@ -3,10 +3,14 @@
 NativeAOT support is experimental and uses EF Core precompiled queries. Keep queries statically
 discoverable at build time; queries assembled from runtime expression trees cannot be precompiled.
 
-Check the current provider documentation before enabling it. Important restrictions include complex
-properties, some field-backed values, some collection converter shapes, and query expressions EF
-Core cannot convert to generated code. Unsupported precompiled shapes fail during build rather than
-falling back at runtime.
+Check the current provider documentation before enabling it. Important restrictions include
+filtering on or projecting complex members, field-backed primitive collections, some collection
+converter shapes, and query expressions EF Core cannot convert to generated code. Entities with
+complex properties and complex collections materialize, but must use `AsNoTracking()` under NativeAOT
+(dotnet/efcore#37750). On EF Core 10 only, that in turn requires the entity type to be declared in
+the global namespace, because EF Core 10's precompiler generates invalid C# for a no-tracking query
+over any namespaced entity type; EF Core 11 does not have this defect. Unsupported precompiled
+shapes fail during build rather than falling back at runtime.
 
 Native publish-and-run is validated for both EF10 and EF11. Treat warnings from trimming or
 dynamic-code paths as part of the experimental support boundary and test the exact deployed query
