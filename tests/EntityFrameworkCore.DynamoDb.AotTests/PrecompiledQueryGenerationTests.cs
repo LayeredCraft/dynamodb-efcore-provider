@@ -3327,6 +3327,229 @@ public class PrecompiledQueryGenerationTests
         }
     }
 
+    // Regression coverage for a Codex review finding on #336: narrowing same-generated-name
+    // constructor overloads by parameter *count* alone is a false-positive ambiguity when their
+    // parameter *types* differ. Widget's private (string) constructor is the one EF Core actually
+    // materializes through (its only settable-via-constructor property is get-only); the unrelated,
+    // never-used (int) overload shares the same arity - and, since constructors are always named
+    // "Ctor" regardless of overload, the same generated accessor name - so both land in this
+    // provider's own reflected-member table under one key. Arity alone can't tell them apart; their
+    // actual parameter types can.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Generated_interceptors_disambiguate_same_arity_overloads_by_parameter_type()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<Widget> Widgets => Set<Widget>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                  {
+                                      modelBuilder.Entity<Widget>(entity =>
+                                      {
+                                          entity.HasPartitionKey(item => item.Pk);
+                                      });
+                                  }
+                              }
+
+                              public sealed class Widget
+                              {
+                                  private Widget(string pk)
+                                  {
+                                      Pk = pk;
+                                  }
+
+                                  // Never used for materialization (nothing maps an int-typed
+                                  // property named "value") - exists only so this type's reflected
+                                  // constructor table has a same-arity, same-generated-name, but
+                                  // differently-typed collision candidate.
+                                  private Widget(int value)
+                                  {
+                                      Pk = value.ToString();
+                                  }
+
+                                  public string Pk { get; }
+                              }
+
+                              public static class QueryContainer
+                              {
+                                  public static async Task<List<Widget>> Get(DbContextOptions options)
+                                  {
+                                      await using var context = new TestContext(options);
+                                      return await context.Widgets.Where(item => item.Pk == "x").ToListAsync();
+                                  }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryOverloadTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "Overload.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            var generatedFile = generatedFiles.Single();
+
+            // Correctly resolved to the (string) constructor: qualifies to Widget's own type as
+            // the return type, with a single string parameter. A wrong resolution to the (int)
+            // overload would instead produce a mismatched signature that fails to compile.
+            generatedFile.Code.Should().Contain("global::GeneratedQueryTest.Widget UnsafeAccessor_GeneratedQueryTest_Widget_Ctor(string");
+            generatedFile.Code.Should().NotContain("UnsafeAccessor_GeneratedQueryTest_Widget_Ctor(int");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                CSharpSyntaxTree.ParseText(generatedFile.Code, parseOptions, generatedFile.Path));
+            AssertCompilationSucceeded(generatedCompilation);
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    // Regression coverage for a Codex review finding on #336: a nested type under a *constructed
+    // generic* containing type (Envelope<string>.Item) reports the containing type's own generic
+    // arguments through GetGenericArguments() in addition to any of its own - constructing its
+    // symbol directly with that full argument list mismatches its actual (here, zero) arity and
+    // throws. The containing type's symbol must be constructed first, then the nested type looked
+    // up from within it.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Generated_interceptors_qualify_a_nested_type_under_a_constructed_generic_container()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class Envelope<T>
+                              {
+                                  public sealed class Item
+                                  {
+                                      public string Text { get; set; } = null!;
+                                  }
+                              }
+
+                              public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<Widget> Widgets => Set<Widget>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                  {
+                                      modelBuilder.Entity<Widget>(entity =>
+                                      {
+                                          entity.HasPartitionKey(item => item.Pk);
+                                          entity.ComplexProperty(item => item.Wrapped);
+                                      });
+                                  }
+                              }
+
+                              public sealed class Widget
+                              {
+                                  public string Pk { get; set; } = null!;
+                                  public Envelope<string>.Item Wrapped { get; set; } = new();
+                              }
+
+                              public static class QueryContainer
+                              {
+                                  public static async Task<List<Widget>> Get(DbContextOptions options)
+                                  {
+                                      await using var context = new TestContext(options);
+                                      return await context.Widgets.Where(item => item.Pk == "x").ToListAsync();
+                                  }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryNestedGenericTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "NestedGeneric.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            var generatedFile = generatedFiles.Single();
+            generatedFile.Code.Should().Contain("global::GeneratedQueryTest.Envelope<string>.Item");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                CSharpSyntaxTree.ParseText(generatedFile.Code, parseOptions, generatedFile.Path));
+            AssertCompilationSucceeded(generatedCompilation);
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
     private enum TestStatus
     {
         Active

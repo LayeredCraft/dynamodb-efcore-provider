@@ -194,6 +194,61 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
         return suffix is null ? name.ToString() : name.Append(suffix).ToString();
     }
 
+    // Unwraps to the innermost named-type identifier text a generated parameter's type syntax can
+    // carry here (nullable/ref/array wrapping, or a generic type's own name ignoring its type
+    // arguments) - enough to compare against a reflected Type's own simple name, without needing
+    // full type resolution (this runs before any qualification has been applied). Shared by
+    // UnsafeAccessorTypeQualifyingRewriter's overload narrowing and TypeQualifier's nested-type
+    // resolution.
+    private static string GetLeafSimpleName(TypeSyntax type) => type switch
+    {
+        NullableTypeSyntax nullable => GetLeafSimpleName(nullable.ElementType),
+        RefTypeSyntax refType => GetLeafSimpleName(refType.Type),
+        ArrayTypeSyntax array => GetLeafSimpleName(array.ElementType),
+        GenericNameSyntax generic => generic.Identifier.Text,
+        QualifiedNameSyntax qualified => GetLeafSimpleName(qualified.Right),
+        IdentifierNameSyntax identifier => identifier.Identifier.Text,
+        // EF Core's translator emits C# keyword syntax for built-in types (e.g. "string", not
+        // "String") - map to the CLR simple name a reflected Type.Name actually uses, so these
+        // compare equal to their reflected counterpart.
+        PredefinedTypeSyntax predefined => predefined.Keyword.Text switch
+        {
+            "string" => nameof(String),
+            "int" => nameof(Int32),
+            "long" => nameof(Int64),
+            "short" => nameof(Int16),
+            "byte" => nameof(Byte),
+            "sbyte" => nameof(SByte),
+            "uint" => nameof(UInt32),
+            "ulong" => nameof(UInt64),
+            "ushort" => nameof(UInt16),
+            "bool" => nameof(Boolean),
+            "double" => nameof(Double),
+            "float" => nameof(Single),
+            "decimal" => nameof(Decimal),
+            "char" => nameof(Char),
+            "object" => nameof(Object),
+            var keyword => keyword
+        },
+        _ => type.ToString()
+    };
+
+    // Mirrors GetLeafSimpleName(TypeSyntax)'s unwrapping for a reflected Type, and strips the CLR
+    // backtick-arity suffix (e.g. "List`1" -> "List") a generic type's own Name always carries,
+    // which the generated syntax's GenericNameSyntax.Identifier never does.
+    private static string GetLeafSimpleName(Type type)
+    {
+        if (type.IsArray)
+            return GetLeafSimpleName(type.GetElementType()!);
+
+        if (Nullable.GetUnderlyingType(type) is { } underlyingType)
+            return GetLeafSimpleName(underlyingType);
+
+        var name = type.Name;
+        var arityMarker = name.IndexOf('`', StringComparison.Ordinal);
+        return arityMarker < 0 ? name : name[..arityMarker];
+    }
+
     private static string RewriteGeneratedFilePreamble(string code)
     {
         if (code.Contains("#nullable enable annotations", StringComparison.Ordinal))
@@ -404,9 +459,15 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
         ///         declarations appears first in the file, since that reflects EF Core's own internal,
         ///         unobservable iteration order, not anything recoverable from the generated text.
         ///         Method and constructor overloads sharing a generated name (and kind), however,
-        ///         differ in parameter count, which the declaration's own parameter list already
+        ///         differ in their parameter list, which the declaration's own parameter list already
         ///         states - a fact read directly off the generated syntax, not a guess - so those are
-        ///         resolved by that count when it alone narrows the same-kind candidates to one.
+        ///         resolved by comparing each parameter position's simple type name (a mismatched
+        ///         count is simply never a match) against each candidate's own reflected parameter
+        ///         types, when that alone narrows the same-kind candidates to one. Comparing full
+        ///         shape rather than count alone matters: two overloads with the same arity but
+        ///         different parameter types (e.g. <c>Widget(string pk)</c> and an unrelated, unused
+        ///         <c>Widget(int value)</c>) are not actually ambiguous - only an overload whose
+        ///         parameter shape doesn't match the generated declaration at all is excluded here.
         ///         Anything still ambiguous after that is a genuine, EF Core-generated naming
         ///         collision this provider cannot safely resolve, and is reported as such rather than
         ///         bound to an arbitrary candidate.
@@ -431,16 +492,11 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
                 return true;
             }
 
-            // The declaration's own parameter list includes the synthesized "instance" receiver in
-            // addition to the member's declared parameters for methods, but not for constructors -
-            // fields never reach here with more than one candidate (see remarks).
-            var declaredParameterCount = node.ParameterList.Parameters.Count;
-            var narrowed = candidates.Where(candidate => candidate.Kind switch
-            {
-                UnsafeAccessorKind.Method => candidate.ParameterCount + 1 == declaredParameterCount,
-                UnsafeAccessorKind.Constructor => candidate.ParameterCount == declaredParameterCount,
-                _ => false
-            }).ToList();
+            // Fields never reach here with more than one candidate (see remarks) - only overloaded
+            // methods/constructors do, and those are narrowed by comparing the generated
+            // declaration's actual parameter shape against each candidate's own reflected parameters.
+            var narrowed = candidates.Where(candidate => candidate.Kind is UnsafeAccessorKind.Method or UnsafeAccessorKind.Constructor
+                && GeneratedParametersMatch(node, candidate)).ToList();
 
             if (narrowed.Count == 1)
             {
@@ -459,6 +515,38 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
                         => $"'{candidate.DeclaringType.FullName}.{candidate.MemberName}'"))
                 + ". Rename one of these namespaces (or the affected members) so their encoded names no "
                 + "longer collide.");
+        }
+
+        /// <summary>
+        ///     Whether the generated declaration's own parameter list - read directly off its
+        ///     syntax, including its synthesized "instance" receiver for methods (but not
+        ///     constructors) - matches <paramref name="candidate" />'s reflected parameters, position
+        ///     by position, compared by simple type name (sufficient to disambiguate overloads;
+        ///     the generated syntax's own parameter types may still be unqualified/leaked at this
+        ///     point in the rewrite, so this deliberately doesn't require full type identity).
+        /// </summary>
+        private static bool GeneratedParametersMatch(MethodDeclarationSyntax node, AccessorMember candidate)
+        {
+            var generatedParameters = node.ParameterList.Parameters;
+            var reflectedParameters = candidate.Kind == UnsafeAccessorKind.Method
+                ? ((MethodInfo)candidate.Method!).GetParameters()
+                : ((ConstructorInfo)candidate.Method!).GetParameters();
+
+            // Methods carry a synthesized "instance" receiver as their own first generated
+            // parameter, ahead of the member's declared parameters; constructors don't.
+            var receiverOffset = candidate.Kind == UnsafeAccessorKind.Method ? 1 : 0;
+            if (generatedParameters.Count != reflectedParameters.Length + receiverOffset)
+                return false;
+
+            for (var i = 0; i < reflectedParameters.Length; i++)
+            {
+                var generatedType = generatedParameters[i + receiverOffset].Type;
+                if (generatedType is null
+                    || GetLeafSimpleName(generatedType) != GetLeafSimpleName(reflectedParameters[i].ParameterType))
+                    return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -529,11 +617,49 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
                 return ResolveNamedSymbol(compilation, typeof(Nullable<>))
                     .Construct(ResolveSymbol(compilation, underlyingType));
 
+            // A nested type under a constructed generic container (e.g. Envelope<string>.Item)
+            // reports ALL of its containing type's arguments through GetGenericArguments(), not
+            // just its own - constructing its INamedTypeSymbol directly with that full list would
+            // pass more arguments than its own arity accepts. Construct the containing symbol
+            // first (recursively - it may itself be nested), then look up the nested symbol from
+            // within it and construct only the nested type's own remaining arguments, if any.
+            if (type.IsNested)
+                return ResolveNestedSymbol(compilation, type);
+
             if (type.IsGenericType && !type.IsGenericTypeDefinition)
                 return ResolveNamedSymbol(compilation, type.GetGenericTypeDefinition())
                     .Construct([.. type.GetGenericArguments().Select(argument => ResolveSymbol(compilation, argument))]);
 
             return ResolveNamedSymbol(compilation, type);
+        }
+
+        private static ITypeSymbol ResolveNestedSymbol(Compilation compilation, Type type)
+        {
+            // Type.DeclaringType always returns the containing type's own generic type definition
+            // (open/unbound), even when `type` itself is a closed constructed type - its arity is
+            // exactly the containing type's own type-parameter count, letting the leading slice of
+            // `type`'s flattened argument list (containing type's arguments, then this type's own,
+            // in that order) be attributed correctly.
+            var containingTypeDefinition = type.DeclaringType!;
+            var allArguments = type.IsGenericType ? type.GetGenericArguments() : [];
+            var containingArity = containingTypeDefinition.GetGenericArguments().Length;
+
+            var containingType = containingArity == 0
+                ? containingTypeDefinition
+                : containingTypeDefinition.MakeGenericType(allArguments[..containingArity]);
+            var containingSymbol = (INamedTypeSymbol)ResolveSymbol(compilation, containingType);
+
+            var ownArguments = allArguments[containingArity..];
+            var nestedTypeName = GetLeafSimpleName(type);
+            var nestedSymbol = containingSymbol.GetTypeMembers(nestedTypeName, ownArguments.Length).FirstOrDefault()
+                ?? throw new InvalidOperationException(
+                    $"Could not resolve nested type '{nestedTypeName}' (arity {ownArguments.Length}) inside "
+                    + $"'{containingSymbol}' against the query-building compilation while fully qualifying a "
+                    + "generated unsafe-accessor declaration.");
+
+            return ownArguments.Length == 0
+                ? nestedSymbol
+                : nestedSymbol.Construct([.. ownArguments.Select(argument => ResolveSymbol(compilation, argument))]);
         }
 
         private static INamedTypeSymbol ResolveNamedSymbol(Compilation compilation, Type type)
