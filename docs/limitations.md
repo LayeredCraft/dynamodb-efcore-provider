@@ -50,9 +50,7 @@ after the entity type's *full* CLR name, which is invalid C# once that name cont
 reproduces for any no-tracking query, not only ones over complex collections, and we found no
 workaround short of declaring the entity type in the global namespace — not something applications
 should be expected to do. EF Core 11 does not exhibit it, and we found no existing upstream issue
-for it. This provider's own NativeAOT test suite works around it by declaring its complex-collection
-entity type in the global namespace, so that suite exercises the fix without exercising this
-separate EF Core 10 defect.
+for it.
 
 Query execution is asynchronous only. Synchronous query operators and enumeration throw
 `InvalidOperationException`; use `ToListAsync`, `FirstAsync`, `ToPageAsync`, or
