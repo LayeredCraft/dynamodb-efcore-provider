@@ -2444,12 +2444,22 @@ public class PrecompiledQueryGenerationTests
         }
     }
 
+    // Deliberately does NOT enumerate every *.dll in AppContext.BaseDirectory: in CI, several test
+    // projects' outputs are published into one shared per-framework directory, so that directory
+    // can contain sibling test projects' own dependencies that this project never references at
+    // all - including EF Core's own specification-test package, which declares its own generically
+    // named nested test-fixture types (e.g. a type literally named "Item"). Referencing those makes
+    // this compilation's "using Microsoft.EntityFrameworkCore;" resolve a bare "Item" identifier to
+    // one of THOSE unrelated types instead of the one this test itself defines - reproducible only
+    // in that shared-output environment, never in a normal per-project build. Only this process's
+    // own actually-loaded assemblies (its real transitive closure) are safe to reference.
     private static IReadOnlyList<MetadataReference> GetMetadataReferences()
-        => ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
-            .Split(Path.PathSeparator)
-            .Concat(Directory.EnumerateFiles(AppContext.BaseDirectory, "*.dll"))
+        => AppDomain.CurrentDomain.GetAssemblies()
+            .Where(static assembly => !assembly.IsDynamic && !string.IsNullOrEmpty(assembly.Location))
+            .Select(static assembly => assembly.Location)
+            .Concat(((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Select(path => MetadataReference.CreateFromFile(path))
+            .Select(static path => MetadataReference.CreateFromFile(path))
             .ToArray();
 
     private static readonly HashSet<string> InterceptorWarningIds =
