@@ -91,8 +91,8 @@ requirement runs into the precompiled no-tracking limitation above for any entit
 a normal namespace.
 
 Filtering on or projecting complex members in precompiled queries is not covered by the tested
-NativeAOT path, and such shapes
-can fail during `dotnet publish` with an EF Core generated-code error.
+NativeAOT path, and such shapes can fail during `dotnet publish` with an EF Core generated-code
+error.
 
 Primitive-collection properties materialize their codec from compiled-model generated code under
 NativeAOT. A primitive-collection property that also carries a property-level value converter is
