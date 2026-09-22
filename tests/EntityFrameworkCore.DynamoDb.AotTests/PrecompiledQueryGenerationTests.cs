@@ -1312,7 +1312,10 @@ public class PrecompiledQueryGenerationTests
 
                                    public static class CollisionRepoA
                                    {
-                                       public static async Task<List<Item>> Get(DbContextOptions options, string key, CancellationToken cancellationToken)
+                                       // Declared as the fully qualified type rather than the "using"-resolved
+                                       // simple name "Item", matching what the query itself produces - avoids any
+                                       // dependence on how "Item" happens to resolve in this file's scope.
+                                       public static async Task<List<GeneratedQueryTest.CollisionA.Item>> Get(DbContextOptions options, string key, CancellationToken cancellationToken)
                                        {
                                            await using var context = new CollisionContext(options);
                                            var pk = key;
@@ -1335,7 +1338,10 @@ public class PrecompiledQueryGenerationTests
 
                                    public static class CollisionRepoB
                                    {
-                                       public static async Task<List<Item>> Get(DbContextOptions options, string key, CancellationToken cancellationToken)
+                                       // Declared as the fully qualified type rather than the "using"-resolved
+                                       // simple name "Item", matching what the query itself produces - avoids any
+                                       // dependence on how "Item" happens to resolve in this file's scope.
+                                       public static async Task<List<GeneratedQueryTest.CollisionB.Item>> Get(DbContextOptions options, string key, CancellationToken cancellationToken)
                                        {
                                            await using var context = new CollisionContext(options);
                                            var pk = key;
@@ -3433,6 +3439,119 @@ public class PrecompiledQueryGenerationTests
             // overload would instead produce a mismatched signature that fails to compile.
             generatedFile.Code.Should().Contain("global::GeneratedQueryTest.Widget UnsafeAccessor_GeneratedQueryTest_Widget_Ctor(string");
             generatedFile.Code.Should().NotContain("UnsafeAccessor_GeneratedQueryTest_Widget_Ctor(int");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                CSharpSyntaxTree.ParseText(generatedFile.Code, parseOptions, generatedFile.Path));
+            AssertCompilationSucceeded(generatedCompilation);
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    // Regression coverage for a human review finding on #336 (j-d-ha): comparing only the
+    // outermost leaf name is not enough to disambiguate overloads whose GENERIC TYPE ARGUMENTS
+    // differ - List<string> and List<int> both reduce to the leaf name "List". Property "Items"'
+    // real, private setter (List<string>) and a hand-written, never-invoked ordinary method also
+    // literally named "set_Items" (List<int> - a legal overload, since the parameter type differs)
+    // collide on generated name and outer leaf name alike; only their generic arguments differ.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Generated_interceptors_disambiguate_overloads_by_generic_type_argument()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<Widget> Widgets => Set<Widget>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                  {
+                                      modelBuilder.Entity<Widget>(entity =>
+                                      {
+                                          entity.HasPartitionKey(item => item.Pk);
+                                          entity
+                                              .PrimitiveCollection(item => item.Items)
+                                              .UsePropertyAccessMode(PropertyAccessMode.PreferProperty);
+                                      });
+                                  }
+                              }
+
+                              public sealed class Widget
+                              {
+                                  public string Pk { get; set; } = null!;
+                                  public List<string> Items { get; private set; } = [];
+
+                                  // Never invoked; exists only so this type's reflected member
+                                  // table has a same-name, same-arity, but different-generic-
+                                  // argument collision candidate for "set_Items".
+                                  private void set_Items(List<int> value)
+                                  {
+                                  }
+                              }
+
+                              public static class QueryContainer
+                              {
+                                  public static async Task<List<Widget>> Get(DbContextOptions options)
+                                  {
+                                      await using var context = new TestContext(options);
+                                      return await context.Widgets.Where(item => item.Pk == "x").ToListAsync();
+                                  }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryGenericOverloadTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "GenericOverload.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            var generatedFile = generatedFiles.Single();
+
+            // Correctly resolved to the real property setter (List<string>), not the unrelated
+            // hand-written overload (List<int>) that happens to share the generated name and arity.
+            generatedFile.Code.Should().Contain(
+                "UnsafeAccessor_GeneratedQueryTest_Widget_set_Items(global::GeneratedQueryTest.Widget instance,"
+                + "global::System.Collections.Generic.List<string> value)");
+            generatedFile.Code.Should().NotContain("List<int> value");
 
             var generatedCompilation = compilation.AddSyntaxTrees(
                 CSharpSyntaxTree.ParseText(generatedFile.Code, parseOptions, generatedFile.Path));

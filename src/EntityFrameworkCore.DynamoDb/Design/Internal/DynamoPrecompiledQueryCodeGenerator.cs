@@ -194,12 +194,75 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
         return suffix is null ? name.ToString() : name.Append(suffix).ToString();
     }
 
+    /// <summary>
+    ///     Whether <paramref name="generatedType" /> - a generated declaration's own parameter/
+    ///     return type syntax, still unqualified at this point in the rewrite - has the same
+    ///     structural shape as <paramref name="reflectedType" />, a candidate member's actual
+    ///     reflected type: same array rank and element shape, same nullable wrapping, and for a
+    ///     generic type, the same type <i>and all of its type arguments</i>, recursively - not
+    ///     merely the same outermost leaf name.
+    /// </summary>
+    /// <remarks>
+    ///     This still can't do better than a bare leaf-name comparison at a position where the
+    ///     generated syntax is (as it always is, at this stage) an unqualified simple identifier -
+    ///     no namespace is available from the syntax to compare against a candidate's namespace.
+    ///     Two candidates that differ ONLY in namespace at every differing position are a genuine,
+    ///     irreducible ambiguity from syntax alone (the same class of case
+    ///     <c>TryResolveAccessorMember</c> already reports explicitly rather than guessing) - this
+    ///     method does not try to resolve that; it only avoids the *opposite* mistake of treating
+    ///     two structurally different shapes (different generic arguments, array-vs-not,
+    ///     nullable-vs-not) as if they matched merely because their outermost leaf name coincides.
+    /// </remarks>
+    private static bool TypeShapesMatch(TypeSyntax generatedType, Type reflectedType)
+    {
+        switch (generatedType)
+        {
+            case NullableTypeSyntax nullable:
+                return Nullable.GetUnderlyingType(reflectedType) is { } underlyingValueType
+                    ? TypeShapesMatch(nullable.ElementType, underlyingValueType)
+                    : !reflectedType.IsValueType && TypeShapesMatch(nullable.ElementType, reflectedType);
+
+            case ArrayTypeSyntax array:
+                return reflectedType.IsArray
+                    && array.RankSpecifiers.Count > 0
+                    && array.RankSpecifiers[0].Sizes.Count == reflectedType.GetArrayRank()
+                    && TypeShapesMatch(array.ElementType, reflectedType.GetElementType()!);
+
+            case GenericNameSyntax generic:
+                if (Nullable.GetUnderlyingType(reflectedType) is { } underlyingFromGeneric)
+                    return generic.Identifier.Text == "Nullable"
+                        && generic.TypeArgumentList.Arguments.Count == 1
+                        && TypeShapesMatch(generic.TypeArgumentList.Arguments[0], underlyingFromGeneric);
+
+                if (!reflectedType.IsGenericType)
+                    return false;
+
+                var reflectedArguments = reflectedType.GetGenericArguments();
+                return generic.Identifier.Text == GetLeafSimpleName(reflectedType)
+                    && generic.TypeArgumentList.Arguments.Count == reflectedArguments.Length
+                    && generic.TypeArgumentList.Arguments
+                        .Zip(reflectedArguments, TypeShapesMatch)
+                        .All(static matched => matched);
+
+            // A qualified name in the GENERATED syntax (rare at this stage, but not impossible if a
+            // prior pass already qualified something) carries real namespace information - use it.
+            case QualifiedNameSyntax qualified:
+                return TypeShapesMatch(qualified.Right, reflectedType)
+                    && string.Equals(
+                        qualified.Left.ToString(),
+                        reflectedType.Namespace,
+                        StringComparison.Ordinal);
+
+            default:
+                return GetLeafSimpleName(generatedType) == GetLeafSimpleName(reflectedType);
+        }
+    }
+
     // Unwraps to the innermost named-type identifier text a generated parameter's type syntax can
     // carry here (nullable/ref/array wrapping, or a generic type's own name ignoring its type
     // arguments) - enough to compare against a reflected Type's own simple name, without needing
-    // full type resolution (this runs before any qualification has been applied). Shared by
-    // UnsafeAccessorTypeQualifyingRewriter's overload narrowing and TypeQualifier's nested-type
-    // resolution.
+    // full type resolution (this runs before any qualification has been applied). Used as
+    // TypeShapesMatch's base case, and shared with TypeQualifier's nested-type resolution.
     private static string GetLeafSimpleName(TypeSyntax type) => type switch
     {
         NullableTypeSyntax nullable => GetLeafSimpleName(nullable.ElementType),
@@ -409,8 +472,13 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
                         QualifyPreservingShape(
                             parameter.Type!,
                             // Parameter 0 is the synthesized "instance" receiver, not one of the
-                            // member's own declared parameters.
-                            index == 0 ? member.DeclaringType : methodParameters[index - 1].ParameterType)));
+                            // member's own declared parameters. A ref/out/in parameter's own
+                            // reflected type is a T& byref type - the ref-ness itself lives on the
+                            // ParameterSyntax's modifiers (untouched here), not its Type, so only
+                            // the underlying element type needs qualifying.
+                            index == 0
+                                ? member.DeclaringType
+                                : StripByRef(methodParameters[index - 1].ParameterType))));
                     return node
                         .WithReturnType(QualifyPreservingShape(node.ReturnType, method.ReturnType))
                         .WithParameterList(node.ParameterList.WithParameters([.. rewrittenParameters]));
@@ -420,7 +488,9 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
                 {
                     var constructorParameters = ((ConstructorInfo)member.Method!).GetParameters();
                     var rewrittenParameters = parameters.Select((parameter, index) => parameter.WithType(
-                        QualifyPreservingShape(parameter.Type!, constructorParameters[index].ParameterType)));
+                        QualifyPreservingShape(
+                            parameter.Type!,
+                            StripByRef(constructorParameters[index].ParameterType))));
                     return node
                         .WithReturnType(QualifyPreservingShape(node.ReturnType, member.DeclaringType))
                         .WithParameterList(node.ParameterList.WithParameters([.. rewrittenParameters]));
@@ -540,9 +610,28 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
 
             for (var i = 0; i < reflectedParameters.Length; i++)
             {
-                var generatedType = generatedParameters[i + receiverOffset].Type;
-                if (generatedType is null
-                    || GetLeafSimpleName(generatedType) != GetLeafSimpleName(reflectedParameters[i].ParameterType))
+                var generatedParameter = generatedParameters[i + receiverOffset];
+                if (generatedParameter.Type is not { } generatedType)
+                    return false;
+
+                var reflectedParameterType = reflectedParameters[i].ParameterType;
+
+                // A ref/out/in parameter is expressed as a modifier on the ParameterSyntax, not as
+                // part of its Type (unlike a field's ref *return*, which the syntax wraps in
+                // RefTypeSyntax) - but reflection reports such a parameter's own type as a T&
+                // byref type. Compare ref-ness explicitly, and strip it before comparing the
+                // underlying type shape.
+                var isGeneratedByRef = generatedParameter.Modifiers.Any(static modifier
+                    => modifier.IsKind(SyntaxKind.RefKeyword)
+                        || modifier.IsKind(SyntaxKind.OutKeyword)
+                        || modifier.IsKind(SyntaxKind.InKeyword));
+                if (isGeneratedByRef != reflectedParameterType.IsByRef)
+                    return false;
+
+                var reflectedElementType = reflectedParameterType.IsByRef
+                    ? reflectedParameterType.GetElementType()!
+                    : reflectedParameterType;
+                if (!TypeShapesMatch(generatedType, reflectedElementType))
                     return false;
             }
 
@@ -570,6 +659,12 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
                 ? null
                 : Enum.Parse<UnsafeAccessorKind>(argument.Name.Identifier.Text);
         }
+
+        // A ref/out/in method or constructor parameter's own reflected type is a T& byref type;
+        // the corresponding generated ParameterSyntax's Type never includes that (the modifier
+        // keyword carries the ref-ness instead), so the underlying element type is what needs
+        // comparing/qualifying.
+        private static Type StripByRef(Type type) => type.IsByRef ? type.GetElementType()! : type;
 
         // Preserves the `ref` (write accessors for fields) and reference-nullable annotation `?`
         // exactly as EF Core's translator emitted them for this position - both are syntax-level
