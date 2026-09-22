@@ -3212,6 +3212,121 @@ public class PrecompiledQueryGenerationTests
         }
     }
 
+    // Regression coverage for the second independent review of #335/#336: a generated accessor
+    // name alone is not authoritative between different UnsafeAccessorKinds. Property "Pk"'s
+    // field-set accessor generates "UnsafeAccessor_{Ns}_Widget_Pk_Set", and a hand-written,
+    // zero-argument, never-invoked private method literally named "Pk_Set" generates the exact
+    // same name (Method kind never suffixes; this method's raw name already ends in "_Set"). Both
+    // declarations end up with exactly one declared parameter too (the field accessor's
+    // synthesized "instance" receiver; the method's zero declared parameters plus its own
+    // synthesized receiver) - so this provider's own reflected-member table has two genuinely
+    // colliding candidates for one generated name, distinguishable only by UnsafeAccessorKind
+    // (which EF Core's attribute already states structurally). The method itself is never actually
+    // referenced by the query below - only its mere presence on the type is needed to poison the
+    // candidate table - so EF Core only ever emits the one, real field accessor; that is enough to
+    // prove the resolver picks the right member kind rather than the wrong one by coincidence.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Generated_interceptors_disambiguate_accessors_by_kind_not_just_name_and_arity()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<Widget> Widgets => Set<Widget>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                  {
+                                      modelBuilder.Entity<Widget>(entity =>
+                                      {
+                                          entity.HasPartitionKey(item => item.Pk);
+                                      });
+                                  }
+                              }
+
+                              public sealed class Widget
+                              {
+                                  public string Pk { get; set; } = null!;
+
+                                  // Never called anywhere; exists only so this type's reflected-member
+                                  // table has a Method-kind candidate colliding, by generated name and
+                                  // declared-parameter-count alike, with Pk's Field-kind set accessor.
+                                  private int Pk_Set() => 0;
+                              }
+
+                              public static class QueryContainer
+                              {
+                                  public static async Task<List<Widget>> Get(DbContextOptions options)
+                                  {
+                                      await using var context = new TestContext(options);
+                                      return await context.Widgets.Where(item => item.Pk == "x").ToListAsync();
+                                  }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryKindCollisionTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "KindCollision.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            var generatedFile = generatedFiles.Single();
+
+            // Correct (Field-kind) resolution: the field's own type (string), by ref, on the Set
+            // accessor. A wrong (Method-kind) resolution would instead qualify the return type
+            // using Pk_Set()'s actual return type (int), which is observably different.
+            generatedFile.Code.Should().Contain(
+                "private static extern ref string UnsafeAccessor_GeneratedQueryTest_Widget_Pk_Set"
+                + "(global::GeneratedQueryTest.Widget instance);");
+            generatedFile.Code.Should().NotContain("Int32");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                CSharpSyntaxTree.ParseText(generatedFile.Code, parseOptions, generatedFile.Path));
+            AssertCompilationSucceeded(generatedCompilation);
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
     private enum TestStatus
     {
         Active

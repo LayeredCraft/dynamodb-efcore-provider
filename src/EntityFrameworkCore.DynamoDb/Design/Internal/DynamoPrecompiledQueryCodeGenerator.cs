@@ -322,13 +322,15 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
     {
         public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
         {
-            if (!HasUnsafeAccessorAttribute(node))
+            if (GetGeneratedAccessorKind(node) is not { } accessorKind)
                 return base.VisitMethodDeclaration(node);
 
             if (!accessorMembers.TryGetValue(node.Identifier.Text, out var candidates) || candidates.Count == 0)
                 return base.VisitMethodDeclaration(node);
 
-            var member = ResolveAccessorMember(node, candidates);
+            if (!TryResolveAccessorMember(node, accessorKind, candidates, out var member))
+                return base.VisitMethodDeclaration(node);
+
             var parameters = node.ParameterList.Parameters;
 
             switch (member.Kind)
@@ -378,30 +380,60 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
         ///     Identifies which reflected member a generated <c>[UnsafeAccessor]</c> method
         ///     declaration corresponds to, when EF Core's lossy namespace-to-underscore name folding
         ///     (see <see cref="BuildAccessorMemberTable" />) has produced more than one candidate for
-        ///     the same generated name.
+        ///     the same generated name. Returns <see langword="false" /> only when no candidate at all
+        ///     shares this declaration's <paramref name="accessorKind" /> - a gap in this provider's
+        ///     own member-table traversal rather than an EF Core-generated collision - in which case
+        ///     the caller leaves the declaration unmodified rather than risk a wrong rewrite.
         /// </summary>
         /// <remarks>
-        ///     A field accessor's declaration shape never varies by the field's own type (always
-        ///     exactly one "instance" parameter), so two colliding field candidates cannot be told
-        ///     apart from the generated syntax at all - not even by which of two duplicate-looking
-        ///     declarations appears first in the file, since that reflects EF Core's own internal,
-        ///     unobservable iteration order, not anything recoverable from the generated text. Method
-        ///     and constructor overloads sharing a generated name, however, differ in parameter count,
-        ///     which the declaration's own parameter list already states - a fact read directly off
-        ///     the generated syntax, not a guess - so those are resolved by that count when it alone
-        ///     narrows the candidates to one. Anything still ambiguous after that is a genuine,
-        ///     EF Core-generated naming collision this provider cannot safely resolve, and is reported
-        ///     as such rather than bound to an arbitrary candidate.
+        ///     <para>
+        ///         The generated declaration's own <c>[UnsafeAccessor(UnsafeAccessorKind...)]</c>
+        ///         attribute argument is authoritative and is checked first, before any name- or
+        ///         shape-based narrowing: a hand-written zero-argument method named
+        ///         <c>"Foo_Set"</c> and property <c>Foo</c>'s field-set accessor both generate the
+        ///         name <c>"..._Foo_Set"</c> <i>and</i> both declarations end up with exactly one
+        ///         declared parameter (the field accessor's synthesized "instance" receiver; the
+        ///         method accessor's zero declared parameters plus its own synthesized receiver) - so
+        ///         without checking <c>UnsafeAccessorKind</c> first, parameter-count narrowing alone
+        ///         could select the wrong candidate with no ambiguity ever detected.
+        ///     </para>
+        ///     <para>
+        ///         A field accessor's declaration shape never varies by the field's own type (always
+        ///         exactly one "instance" parameter), so two colliding field candidates cannot be told
+        ///         apart from the generated syntax at all - not even by which of two duplicate-looking
+        ///         declarations appears first in the file, since that reflects EF Core's own internal,
+        ///         unobservable iteration order, not anything recoverable from the generated text.
+        ///         Method and constructor overloads sharing a generated name (and kind), however,
+        ///         differ in parameter count, which the declaration's own parameter list already
+        ///         states - a fact read directly off the generated syntax, not a guess - so those are
+        ///         resolved by that count when it alone narrows the same-kind candidates to one.
+        ///         Anything still ambiguous after that is a genuine, EF Core-generated naming
+        ///         collision this provider cannot safely resolve, and is reported as such rather than
+        ///         bound to an arbitrary candidate.
+        ///     </para>
         /// </remarks>
-        private static AccessorMember ResolveAccessorMember(
+        private static bool TryResolveAccessorMember(
             MethodDeclarationSyntax node,
-            List<AccessorMember> candidates)
+            UnsafeAccessorKind accessorKind,
+            List<AccessorMember> allCandidates,
+            out AccessorMember member)
         {
+            var candidates = allCandidates.Where(candidate => candidate.Kind == accessorKind).ToList();
+            if (candidates.Count == 0)
+            {
+                member = default;
+                return false;
+            }
+
             if (candidates.Count == 1)
-                return candidates[0];
+            {
+                member = candidates[0];
+                return true;
+            }
 
             // The declaration's own parameter list includes the synthesized "instance" receiver in
-            // addition to the member's declared parameters for methods, but not for constructors.
+            // addition to the member's declared parameters for methods, but not for constructors -
+            // fields never reach here with more than one candidate (see remarks).
             var declaredParameterCount = node.ParameterList.Parameters.Count;
             var narrowed = candidates.Where(candidate => candidate.Kind switch
             {
@@ -411,13 +443,16 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
             }).ToList();
 
             if (narrowed.Count == 1)
-                return narrowed[0];
+            {
+                member = narrowed[0];
+                return true;
+            }
 
             throw new InvalidOperationException(
-                $"EF Core generated an unsafe-accessor method named '{node.Identifier.Text}' that this "
-                + $"provider cannot unambiguously attribute to a single CLR member. EF Core encodes a "
-                + "member's declaring-type namespace into the generated name by replacing '.' with '_', "
-                + "which collides for more than one of the following: "
+                $"EF Core generated an unsafe-accessor method named '{node.Identifier.Text}' (kind: "
+                + $"{accessorKind}) that this provider cannot unambiguously attribute to a single CLR "
+                + "member. EF Core encodes a member's declaring-type namespace into the generated name "
+                + "by replacing '.' with '_', which collides for more than one of the following: "
                 + string.Join(
                     "; ",
                     candidates.Select(candidate
@@ -426,9 +461,27 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
                 + "longer collide.");
         }
 
-        private static bool HasUnsafeAccessorAttribute(MethodDeclarationSyntax method) => method.AttributeLists
-            .SelectMany(static list => list.Attributes)
-            .Any(static attribute => attribute.Name.ToString() is "UnsafeAccessor" or "UnsafeAccessorAttribute");
+        /// <summary>
+        ///     Reads the <see cref="UnsafeAccessorKind" /> from a method declaration's
+        ///     <c>[UnsafeAccessor(...)]</c> attribute, structurally - not inferred from the generated
+        ///     method name - or <see langword="null" /> if it has no such attribute.
+        /// </summary>
+        private static UnsafeAccessorKind? GetGeneratedAccessorKind(MethodDeclarationSyntax method)
+        {
+            var argument = method.AttributeLists
+                .SelectMany(static list => list.Attributes)
+                .Where(static attribute => attribute.Name.ToString() is "UnsafeAccessor" or "UnsafeAccessorAttribute")
+                .Select(static attribute => attribute.ArgumentList?.Arguments.FirstOrDefault()?.Expression)
+                .OfType<MemberAccessExpressionSyntax>()
+                .FirstOrDefault(static expression => expression.Expression is IdentifierNameSyntax
+                {
+                    Identifier.Text: nameof(UnsafeAccessorKind)
+                });
+
+            return argument is null
+                ? null
+                : Enum.Parse<UnsafeAccessorKind>(argument.Name.Identifier.Text);
+        }
 
         // Preserves the `ref` (write accessors for fields) and reference-nullable annotation `?`
         // exactly as EF Core's translator emitted them for this position - both are syntax-level
