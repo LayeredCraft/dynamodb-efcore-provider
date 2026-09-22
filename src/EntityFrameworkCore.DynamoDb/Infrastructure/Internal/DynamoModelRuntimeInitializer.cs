@@ -2,15 +2,47 @@ using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.Metadata;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 
 /// <summary>Builds runtime DynamoDB table metadata after model validation completes.</summary>
-public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDependencies dependencies)
+public sealed class DynamoModelRuntimeInitializer(
+    ModelRuntimeInitializerDependencies dependencies,
+    IDynamoSingletonOptions singletonOptions)
     : ModelRuntimeInitializer(dependencies)
 {
+    /// <summary>
+    ///     Initializes the model and verifies that it was initialized with the same runtime
+    ///     resource-name configuration as the calling context.
+    /// </summary>
+    /// <remarks>
+    ///     EF initializes a model instance once, for the first internal service provider that sees
+    ///     it. A compiled model instance is a process-wide singleton, so a second, differently
+    ///     configured context would otherwise silently observe the first configuration's names.
+    /// </remarks>
+    public override IModel Initialize(
+        IModel model,
+        bool designTime = true,
+        IDiagnosticsLogger<DbLoggerCategory.Model.Validation>? validationLogger = null)
+    {
+        var initialized = base.Initialize(model, designTime, validationLogger);
+
+        var applied = model
+            .FindRuntimeAnnotation(DynamoAnnotationNames.AppliedRuntimeResourceNames)
+            ?.Value;
+        if (!Equals(applied, singletonOptions.RuntimeResourceNames))
+            throw new InvalidOperationException(
+                "This model was already initialized with a different DynamoDB runtime resource-name "
+                + "configuration. Runtime physical table and index names are fixed for the lifetime "
+                + "of an initialized model, and a compiled model instance cannot be shared between "
+                + "contexts configured with different runtime resource names.");
+
+        return initialized;
+    }
+
     /// <summary>Attaches the canonical runtime table model to the finalized runtime model.</summary>
     /// <remarks>
     ///     Overrides <c>ModelRuntimeInitializer.InitializeModel</c> rather than
@@ -26,7 +58,7 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
         if (prevalidation)
             return;
 
-        ApplyTableGroupNameAnnotations(model);
+        ApplyResourceNames(model, singletonOptions.RuntimeResourceNames);
 
         // Runtime table descriptors are built eagerly here, mirroring EF Core's relational
         // runtime model pattern: building also validates shared-table/index consistency, so
@@ -38,13 +70,214 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
             model);
     }
 
-    /// <summary>Stores effective table-group names on runtime entity metadata.</summary>
-    private static void ApplyTableGroupNameAnnotations(IModel model)
+    /// <summary>
+    ///     Stores effective table-group and secondary-index names on runtime metadata, applying any
+    ///     configured runtime physical names over the names configured in the model.
+    /// </summary>
+    /// <remarks>
+    ///     Runs once per model instance (see <see cref="ModelRuntimeInitializer" />), before the
+    ///     runtime table model is built and before any query template can cache a physical name.
+    ///     Names are written as runtime annotations only, so the compiled model itself is never
+    ///     modified and its design-time names remain what it was generated with.
+    /// </remarks>
+    private static void ApplyResourceNames(IModel model, DynamoRuntimeResourceNames? names)
     {
+        if (names is null)
+        {
+            // No runtime mapping: the effective name is the name configured in the model.
+            foreach (var entityType in model.GetEntityTypes())
+                entityType.SetRuntimeAnnotation(
+                    DynamoAnnotationNames.TableGroupName,
+                    entityType.ComputeTableGroupName());
+
+            return;
+        }
+
+        var groups = DynamoTableGroups.Resolve(model);
+        var tableNames = ApplyTableNames(groups, names);
+
         foreach (var entityType in model.GetEntityTypes())
+        {
+            var modelName = entityType.ComputeTableGroupName();
             entityType.SetRuntimeAnnotation(
                 DynamoAnnotationNames.TableGroupName,
-                entityType.ComputeTableGroupName());
+                tableNames.GetValueOrDefault(modelName) ?? modelName);
+        }
+
+        ApplyIndexNames(groups, names);
+        model.SetRuntimeAnnotation(DynamoAnnotationNames.AppliedRuntimeResourceNames, names);
+    }
+
+    /// <summary>Resolves the runtime physical table name of each mapped table group.</summary>
+    /// <returns>The physical names keyed by the table's model (design-time) name.</returns>
+    private static Dictionary<string, string> ApplyTableNames(
+        IReadOnlyList<DynamoTableGroup> groups,
+        DynamoRuntimeResourceNames names)
+    {
+        Dictionary<string, string> resolved = new(StringComparer.Ordinal);
+
+        foreach (var (logicalTable, physicalName) in names.Tables)
+        {
+            var group = FindGroup(groups, logicalTable, "table");
+            resolved[group.ModelName] = physicalName;
+        }
+
+        // Index mappings must also refer to a declared logical table, even when the table itself is
+        // not remapped.
+        foreach (var logicalTable in names.SecondaryIndexes.Keys)
+            _ = FindGroup(groups, logicalTable, "secondary index");
+
+        // A physical table is exactly one table group, so two tables must not resolve to one name.
+        foreach (var collision in groups
+            .GroupBy(
+                group => resolved.GetValueOrDefault(group.ModelName) ?? group.ModelName,
+                StringComparer.Ordinal)
+            .Where(static effective => effective.Count() > 1))
+            throw new InvalidOperationException(
+                $"The DynamoDB runtime resource-name configuration resolves more than one table to the physical table '{collision.Key}': "
+                + string.Join(", ", collision.Select(static group => $"'{group.LogicalName ?? group.ModelName}'"))
+                + ". Each table needs its own physical name.");
+
+        return resolved;
+    }
+
+    /// <summary>Applies runtime physical secondary-index names as runtime annotations.</summary>
+    /// <remarks>
+    ///     The logical index identity is the EF index name. Every secondary index with that name in
+    ///     the table receives the physical name, matching how entity types sharing a table share the
+    ///     physical index.
+    /// </remarks>
+    private static void ApplyIndexNames(
+        IReadOnlyList<DynamoTableGroup> groups,
+        DynamoRuntimeResourceNames names)
+    {
+        foreach (var (logicalTable, indexNames) in names.SecondaryIndexes)
+        {
+            var group = FindGroup(groups, logicalTable, "secondary index");
+            var secondaryIndexes = group
+                .EntityTypes
+                .SelectMany(static entityType => entityType.GetDeclaredIndexes())
+                .Where(static index => index.GetSecondaryIndexKind() is not null
+                    && index.Name is not null)
+                .ToArray();
+            var indexesByName = secondaryIndexes.ToLookup(
+                static index => index.Name!,
+                StringComparer.Ordinal);
+
+            foreach (var logicalIndex in indexNames.Keys)
+                if (!indexesByName.Contains(logicalIndex))
+                    throw new InvalidOperationException(
+                        $"The DynamoDB runtime resource-name configuration maps secondary index '{logicalIndex}' of logical table '{logicalTable}', "
+                        + "but the model declares no such index. "
+                        + (indexesByName.Count == 0
+                            ? "The table has no secondary indexes."
+                            : $"Declared secondary indexes: {string.Join(", ", indexesByName.Select(static i => $"'{i.Key}'").Order(StringComparer.Ordinal))}.")
+                        + " The logical index name is the EF index name passed to HasGlobalSecondaryIndex or HasLocalSecondaryIndex.");
+
+            ValidateEffectiveIndexes(logicalTable, secondaryIndexes, indexNames);
+
+            foreach (var (logicalIndex, physicalName) in indexNames)
+                // The initializer only ever runs over an IModel, whose indexes are IIndex.
+                foreach (var index in indexesByName[logicalIndex].Cast<IIndex>())
+                    index.SetRuntimeAnnotation(
+                        DynamoAnnotationNames.RuntimeSecondaryIndexName,
+                        physicalName);
+        }
+    }
+
+    /// <summary>
+    ///     Checks the effective physical index names of a whole table, not only the indexes a mapping
+    ///     mentions.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The provider identifies one physical index by its configured (design-time) name: entity
+    ///         types that share a table and declare an index with the same physical name share that one
+    ///         index, and may give the EF index different names. A runtime mapping must not change that
+    ///         identity, so two rules hold for every index of the table:
+    ///     </para>
+    ///     <list type="bullet">
+    ///         <item>
+    ///             indexes that the model declares with different physical names must not resolve to the
+    ///             same effective name, whether or not the mapping mentions all of them;
+    ///         </item>
+    ///         <item>
+    ///             indexes that the model declares with the same physical name must resolve to one
+    ///             effective name, so a shared physical index is neither split nor partly mapped.
+    ///         </item>
+    ///     </list>
+    ///     Equivalent declarations of one logical index on several entity types are the same resource
+    ///     and are never treated as a conflict.
+    /// </remarks>
+    private static void ValidateEffectiveIndexes(
+        string logicalTable,
+        IReadOnlyList<IReadOnlyIndex> secondaryIndexes,
+        IReadOnlyDictionary<string, string> indexNames)
+    {
+        var resources = secondaryIndexes
+            .Select(index =>
+            {
+                var modelName = index[DynamoAnnotationNames.SecondaryIndexName] as string
+                    ?? index.Name!;
+                var mapped = indexNames.TryGetValue(index.Name!, out var runtimeName);
+                return new EffectiveIndex(index.Name!, modelName, mapped, mapped ? runtimeName! : modelName);
+            })
+            .Distinct()
+            .ToArray();
+
+        foreach (var collision in resources
+            .GroupBy(static resource => resource.EffectiveName, StringComparer.Ordinal)
+            .Where(static effective => effective.Select(static r => r.ModelName).Distinct(StringComparer.Ordinal).Count() > 1))
+            throw new InvalidOperationException(
+                $"The DynamoDB runtime resource-name configuration resolves more than one secondary index of logical table '{logicalTable}' to the physical index '{collision.Key}': "
+                + string.Join(", ", DescribeIndexes(collision))
+                + ". Each index needs its own physical name; map the indexes to different names or map the other index as well.");
+
+        foreach (var split in resources
+            .GroupBy(static resource => resource.ModelName, StringComparer.Ordinal)
+            .Where(static model => model.Select(static r => r.EffectiveName).Distinct(StringComparer.Ordinal).Count() > 1))
+            throw new InvalidOperationException(
+                $"The DynamoDB runtime resource-name configuration resolves the physical index '{split.Key}' of logical table '{logicalTable}', which the model shares between several logical indexes, to different names: "
+                + string.Join(", ", DescribeIndexes(split))
+                + ". Map every logical index that shares a physical index to the same physical name.");
+    }
+
+    private static IEnumerable<string> DescribeIndexes(IEnumerable<EffectiveIndex> resources)
+        => resources
+            .OrderByDescending(static resource => resource.Mapped)
+            .ThenBy(static resource => resource.LogicalName, StringComparer.Ordinal)
+            .Select(static resource => resource.Mapped
+                ? $"'{resource.LogicalName}' (mapped to '{resource.EffectiveName}', model name '{resource.ModelName}')"
+                : $"'{resource.LogicalName}' (not mapped, model name '{resource.ModelName}')");
+
+    /// <summary>One logical index of a table with its model and effective physical names.</summary>
+    private readonly record struct EffectiveIndex(
+        string LogicalName,
+        string ModelName,
+        bool Mapped,
+        string EffectiveName);
+
+    private static DynamoTableGroup FindGroup(
+        IReadOnlyList<DynamoTableGroup> groups,
+        string logicalTable,
+        string resource)
+    {
+        foreach (var group in groups)
+            if (string.Equals(group.LogicalName, logicalTable, StringComparison.Ordinal))
+                return group;
+
+        var declared = groups
+            .Where(static group => group.LogicalName is not null)
+            .Select(static group => $"'{group.LogicalName}'")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        throw new InvalidOperationException(
+            $"The DynamoDB runtime resource-name configuration maps the {resource} of logical table '{logicalTable}', "
+            + "but the model declares no logical table with that name. "
+            + (declared.Length == 0
+                ? "No logical table names are declared; declare one with HasLogicalTableName."
+                : $"Declared logical tables: {string.Join(", ", declared)}.")
+            + " Check the spelling.");
     }
 
     /// <summary>Builds runtime table descriptors grouped by effective physical table name.</summary>

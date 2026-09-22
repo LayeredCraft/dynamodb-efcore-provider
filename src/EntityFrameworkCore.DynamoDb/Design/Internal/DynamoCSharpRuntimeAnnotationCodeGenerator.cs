@@ -25,7 +25,19 @@ public sealed class DynamoCSharpRuntimeAnnotationCodeGenerator(
     {
         // DynamoModelRuntimeInitializer rebuilds this derived lookup from compiled metadata.
         parameters.Annotations.Remove(DynamoAnnotationNames.RuntimeTableModel);
+        // Runtime resource-name configuration is applied during runtime-model initialization and
+        // must never be baked into a compiled model.
+        parameters.Annotations.Remove(DynamoAnnotationNames.AppliedRuntimeResourceNames);
         base.Generate(model, parameters);
+    }
+
+    /// <inheritdoc />
+    public override void Generate(
+        IIndex index,
+        CSharpRuntimeAnnotationCodeGeneratorParameters parameters)
+    {
+        parameters.Annotations.Remove(DynamoAnnotationNames.RuntimeSecondaryIndexName);
+        base.Generate(index, parameters);
     }
 
     /// <inheritdoc />

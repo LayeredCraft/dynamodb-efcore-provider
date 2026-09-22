@@ -25,7 +25,7 @@ jobs:
       runCdk: false
 
   native-aot:
-    name: native AOT smoke (${{ matrix.targetFramework }})
+    name: native AOT tests (${{ matrix.targetFramework }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -43,9 +43,15 @@ jobs:
       - name: Write single-TFM override
         shell: bash
         run: scripts/write-target-framework-override.sh "${{ matrix.targetFramework }}"
-      - name: Publish, gate, and run NativeAOT smoke
+      - name: Publish and run NativeAOT tests
         shell: bash
-        run: scripts/run-nativeaot-smoke.sh Release linux-x64 "${{ matrix.targetFramework }}"
+        run: |
+          dotnet restore tests/EntityFrameworkCore.DynamoDb.NativeAotTests/EntityFrameworkCore.DynamoDb.NativeAotTests.csproj -p:TargetFrameworks="${{ matrix.targetFramework }}" --runtime linux-x64
+          mkdir -p artifacts
+          set -o pipefail
+          dotnet publish tests/EntityFrameworkCore.DynamoDb.NativeAotTests/EntityFrameworkCore.DynamoDb.NativeAotTests.csproj --configuration Release --framework "${{ matrix.targetFramework }}" --runtime linux-x64 --no-restore --output artifacts/nativeaot-tests 2>&1 | tee artifacts/nativeaot-tests.log
+          bash scripts/verify-nativeaot-warnings.sh artifacts/nativeaot-tests.log
+          artifacts/nativeaot-tests/EntityFrameworkCore.DynamoDb.NativeAotTests
       - name: Clear single-TFM override
         if: always()
         shell: bash

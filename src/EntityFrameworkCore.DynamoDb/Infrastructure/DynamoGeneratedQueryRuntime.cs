@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Extensions;
+using EntityFrameworkCore.DynamoDb.Metadata;
 using EntityFrameworkCore.DynamoDb.Query.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
@@ -88,11 +90,18 @@ public static class DynamoGeneratedQueryRuntime
     public sealed class QueryTemplate
     {
         private readonly CommandSegment[] _segments;
+        private readonly string _generatedTableName;
+        private readonly string? _generatedIndexName;
 
         internal QueryTemplate(
             CommandSegment[] segments,
-            string tableName,
-            string? indexName,
+            string bakedTableName,
+            string resolvedTableName,
+            string? bakedIndexName,
+            string? resolvedIndexName,
+            string? indexDeclaringEntityTypeName,
+            string[]? indexPropertyNames,
+            int? indexOrdinal,
             bool isGlobalSecondaryIndex,
             bool isScanLike,
             string? scanMessage,
@@ -105,11 +114,17 @@ public static class DynamoGeneratedQueryRuntime
             string? consistentReadParameterName,
             bool hasUserLimit,
             bool isFirstTerminal,
-            bool isSingleTerminal)
+            bool isSingleTerminal,
+            string? queryEntityTypeName)
         {
             _segments = segments;
-            TableName = tableName;
-            IndexName = indexName;
+            _generatedTableName = bakedTableName;
+            _generatedIndexName = bakedIndexName;
+            TableName = resolvedTableName;
+            IndexName = resolvedIndexName;
+            IndexDeclaringEntityTypeName = indexDeclaringEntityTypeName;
+            IndexPropertyNames = indexPropertyNames;
+            IndexOrdinal = indexOrdinal;
             IsGlobalSecondaryIndex = isGlobalSecondaryIndex;
             IsScanLike = isScanLike;
             ScanMessage = scanMessage;
@@ -123,10 +138,14 @@ public static class DynamoGeneratedQueryRuntime
             HasUserLimit = hasUserLimit;
             IsFirstTerminal = isFirstTerminal;
             IsSingleTerminal = isSingleTerminal;
+            QueryEntityTypeName = queryEntityTypeName;
         }
 
         internal string TableName { get; }
         internal string? IndexName { get; }
+        internal string? IndexDeclaringEntityTypeName { get; }
+        internal string[]? IndexPropertyNames { get; }
+        internal int? IndexOrdinal { get; }
         internal bool IsGlobalSecondaryIndex { get; }
         internal bool IsScanLike { get; }
         internal string? ScanMessage { get; }
@@ -140,6 +159,7 @@ public static class DynamoGeneratedQueryRuntime
         internal bool HasUserLimit { get; }
         internal bool IsFirstTerminal { get; }
         internal bool IsSingleTerminal { get; }
+        internal string? QueryEntityTypeName { get; }
         internal IReadOnlyList<CommandSegment> Segments => _segments;
 
         internal DynamoPartiQlQuery Render(IReadOnlyDictionary<string, object?> parameterValues)
@@ -149,7 +169,15 @@ public static class DynamoGeneratedQueryRuntime
 
             RenderSegments(_segments, parameterValues, sql, parameters);
 
-            return new DynamoPartiQlQuery(sql.ToString(), parameters);
+            var statement = sql.ToString();
+            if (!string.Equals(_generatedTableName, TableName, StringComparison.Ordinal)
+                || !string.Equals(_generatedIndexName, IndexName, StringComparison.Ordinal))
+                statement = statement.Replace(
+                    FormatFromClause(_generatedTableName, _generatedIndexName),
+                    FormatFromClause(TableName, IndexName),
+                    StringComparison.Ordinal);
+
+            return new DynamoPartiQlQuery(statement, parameters);
         }
 
         internal SelectExpression CreateExecutionExpression()
@@ -321,7 +349,12 @@ public static class DynamoGeneratedQueryRuntime
     public static QueryTemplate CreateQueryTemplate(
         CommandSegment[] segments,
         string tableName,
+        IModel? model,
+        string? queryEntityTypeName,
         string? indexName,
+        string? indexDeclaringEntityTypeName,
+        string[]? indexPropertyNames,
+        int? indexOrdinal,
         bool globalSecondaryIndex,
         bool scanLike,
         string? scanMessage,
@@ -335,10 +368,26 @@ public static class DynamoGeneratedQueryRuntime
         bool userLimit,
         bool firstTerminal,
         bool singleTerminal)
-        => new(
+    {
+        var runtimeTableName = ResolveRuntimeTableName(tableName, model, queryEntityTypeName);
+        var runtimeIndexName = ResolveRuntimeIndexName(
+            indexName,
+            model,
+            queryEntityTypeName,
+            indexDeclaringEntityTypeName,
+            indexPropertyNames,
+            indexOrdinal,
+            globalSecondaryIndex);
+
+        return new(
             segments,
             tableName,
+            runtimeTableName,
             indexName,
+            runtimeIndexName,
+            indexDeclaringEntityTypeName,
+            indexPropertyNames,
+            indexOrdinal,
             globalSecondaryIndex,
             scanLike,
             scanMessage,
@@ -351,7 +400,9 @@ public static class DynamoGeneratedQueryRuntime
             consistentReadParameterName,
             userLimit,
             firstTerminal,
-            singleTerminal);
+            singleTerminal,
+            queryEntityTypeName);
+    }
 
     /// <summary>Creates a generated asynchronous query enumerable.</summary>
     public static IAsyncEnumerable<T> CreateAsyncQueryingEnumerable<T>(
@@ -387,14 +438,22 @@ public static class DynamoGeneratedQueryRuntime
     public sealed class UpdateTemplate
     {
         private readonly CommandSegment[] _segments;
+        private readonly string _generatedTableName;
 
-        internal UpdateTemplate(CommandSegment[] segments, string tableName)
+        internal UpdateTemplate(
+            CommandSegment[] segments,
+            string generatedTableName,
+            string tableName,
+            string? queryEntityTypeName)
         {
             _segments = segments;
+            _generatedTableName = generatedTableName;
             TableName = tableName;
+            QueryEntityTypeName = queryEntityTypeName;
         }
 
         internal string TableName { get; }
+        internal string? QueryEntityTypeName { get; }
 
         internal IReadOnlyList<CommandSegment> Segments => _segments;
 
@@ -407,6 +466,17 @@ public static class DynamoGeneratedQueryRuntime
             RenderSegments(_segments, parameterValues, sql, parameters);
 
             var statement = sql.ToString();
+            if (!string.Equals(_generatedTableName, TableName, StringComparison.Ordinal))
+                statement = statement
+                    .Replace(
+                        $"UPDATE \"{_generatedTableName}\"",
+                        $"UPDATE \"{TableName}\"",
+                        StringComparison.Ordinal)
+                    .Replace(
+                        $"DELETE FROM \"{_generatedTableName}\"",
+                        $"DELETE FROM \"{TableName}\"",
+                        StringComparison.Ordinal);
+
             DynamoPartiQlStatementValidator.ValidateStatementLength(statement, "write");
 
             return new DynamoPartiQlQuery(statement, parameters);
@@ -414,8 +484,69 @@ public static class DynamoGeneratedQueryRuntime
     }
 
     /// <summary>Creates the runtime form of a generated ExecuteUpdate template.</summary>
-    public static UpdateTemplate CreateUpdateTemplate(CommandSegment[] segments, string tableName)
-        => new(segments, tableName);
+    public static UpdateTemplate CreateUpdateTemplate(
+        CommandSegment[] segments,
+        string tableName,
+        IModel? model,
+        string? queryEntityTypeName)
+        => new(
+            segments,
+            tableName,
+            ResolveRuntimeTableName(tableName, model, queryEntityTypeName),
+            queryEntityTypeName);
+
+    private static string ResolveRuntimeTableName(
+        string tableName,
+        IModel? model,
+        string? queryEntityTypeName)
+        => model is not null
+            && queryEntityTypeName is not null
+            && model.FindEntityType(queryEntityTypeName) is { } entityType
+                ? entityType.GetTableGroupName()
+                : tableName;
+
+    private static string? ResolveRuntimeIndexName(
+        string? indexName,
+        IModel? model,
+        string? queryEntityTypeName,
+        string? indexDeclaringEntityTypeName,
+        string[]? indexPropertyNames,
+        int? indexOrdinal,
+        bool globalSecondaryIndex)
+    {
+        if (model is null
+            || queryEntityTypeName is null
+            || indexDeclaringEntityTypeName is null
+            || indexPropertyNames is null
+            || indexOrdinal is null
+            || indexOrdinal < 0)
+            return indexName;
+
+        var entityType = model.FindEntityType(indexDeclaringEntityTypeName);
+        var runtimeIndex =
+            entityType
+                ?.GetDeclaredIndexes()
+                .Where(static index => index.GetSecondaryIndexKind() is not null)
+                .Skip(indexOrdinal.Value)
+                .FirstOrDefault();
+
+        if (runtimeIndex is null
+            || !runtimeIndex
+                .Properties
+                .Select(static property => property.Name)
+                .SequenceEqual(indexPropertyNames, StringComparer.Ordinal)
+            || runtimeIndex.GetSecondaryIndexKind()
+            != (globalSecondaryIndex
+                ? DynamoSecondaryIndexKind.Global
+                : DynamoSecondaryIndexKind.Local))
+            throw new InvalidOperationException(
+                "The runtime model does not contain the secondary index required by this generated query.");
+
+        return runtimeIndex.GetSecondaryIndexName();
+    }
+
+    private static string FormatFromClause(string tableName, string? indexName)
+        => indexName is null ? $"FROM \"{tableName}\"" : $"FROM \"{tableName}\".\"{indexName}\"";
 
     /// <summary>Creates a generated asynchronous ExecuteUpdate executor.</summary>
     public static Task<int> CreateUpdateExecutorAsync(

@@ -8,6 +8,12 @@ public static class DynamoAnnotationNames
     /// <summary>Annotation key for the DynamoDB table name on an entity type.</summary>
     public const string TableName = Prefix + "TableName";
 
+    /// <summary>
+    ///     Annotation key for the logical table identity on an entity type. It identifies a table group
+    ///     independently of its environment-specific physical name.
+    /// </summary>
+    public const string LogicalTableName = Prefix + "LogicalTableName";
+
     /// <summary>Annotation key for the effective DynamoDB table group name on an entity type.</summary>
     public const string TableGroupName = Prefix + "TableGroupName";
 
@@ -28,6 +34,18 @@ public static class DynamoAnnotationNames
 
     /// <summary>Annotation key for the secondary index name on an entity type or property.</summary>
     public const string SecondaryIndexName = Prefix + "SecondaryIndexName";
+
+    /// <summary>
+    ///     Runtime-only annotation key holding the environment-specific physical secondary index
+    ///     name applied during runtime-model initialization. Never serialized into compiled models.
+    /// </summary>
+    public const string RuntimeSecondaryIndexName = Prefix + "RuntimeSecondaryIndexName";
+
+    /// <summary>
+    ///     Runtime-only annotation key recording the runtime resource names that were applied to a
+    ///     model during runtime-model initialization.
+    /// </summary>
+    public const string AppliedRuntimeResourceNames = Prefix + "AppliedRuntimeResourceNames";
 
     /// <summary>Annotation key for the secondary index kind (GSI or LSI) on an entity type.</summary>
     public const string SecondaryIndexKind = Prefix + "SecondaryIndexKind";

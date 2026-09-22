@@ -37,6 +37,12 @@ Use `EnsureCreatedAsync` and `EnsureDeletedAsync` for explicit DynamoDB table li
 including missing table creation, GSI updates, LSI limitations, async-only APIs, and seeding
 behavior.
 
+### [Runtime Resource Names](runtime-resource-names.md)
+
+An advanced facility for EF compiled models and NativeAOT applications that are promoted unchanged
+between environments with different physical table or index names. Most applications do not need it;
+configure names with `ToTable(...)` and `HasSecondaryIndexName(...)` instead.
+
 ### [Attribute Naming](attribute-naming.md)
 
 Control how CLR property names translate to DynamoDB attribute names. The provider applies

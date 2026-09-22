@@ -73,6 +73,17 @@ parameters. Local collections are expanded to the required number of positional 
 runtime; an empty or null collection becomes a false predicate. Property reads are generated from
 the compiled model so configured value converters are retained.
 
+Generated read templates resolve DynamoDB table and secondary-index names from the runtime EF
+model. Runtime resource-name configuration is honored by precompiled queries; generated write
+templates resolve the table name for `ExecuteUpdateAsync` and `ExecuteDeleteAsync`.
+
+An EF compiled model contains the physical names it was generated with and bypasses
+`OnModelCreating`. If, and only if, the physical names differ between the environments you promote one
+artifact through, supply them with `UseDynamo(o => o.RuntimeResourceNames(...))`, which applies them
+to the runtime model when it is initialized. Precompiled queries then use them without regenerating
+anything. This is an advanced facility, not a general recommendation; see
+[Runtime Resource Names](../configuration/runtime-resource-names.md).
+
 The explicit `IEnumerable<T>` cast avoids the compiler selecting a span-based `Contains` overload
 for local arrays, which EF Core's query precompiler cannot currently translate.
 
@@ -112,7 +123,7 @@ for local arrays, which EF Core's query precompiler cannot currently translate.
     correctly, proving the underlying pagination mechanics work. For a **tracked, non-empty**
     result, this is enough for full pagination: the page's `NextToken` is available via
     `EntityEntry.GetExecuteStatementResponse()` (see [Pagination](pagination.md#accessing-the-raw-response-token)),
-    verified under a precompiled NativeAOT query in this provider's own smoke tests.
+    verified under a precompiled NativeAOT query in this provider's own runtime tests.
     `ToPageAsync(...)` is still required when there is no tracked entity to read the token from —
     **projections**, **no-tracking queries**, and **empty pages**. Tracked upstream:
     [dotnet/efcore#38962](https://github.com/dotnet/efcore/issues/38962). See
@@ -142,9 +153,9 @@ task test:aot-generation FRAMEWORK=net11.0
 ```
 
 The provider verifies the generated EF Core 10 and EF Core 11 executor templates in its
-per-framework generation tests. Publish and run the native smoke app with `task test:aot-publish FRAMEWORK=net10.0` (or `net11.0`) — this is the NativeAOT path gated by CI for both EF Core
-versions. The smoke app runs parameterized and materializing queries plus a `SaveChanges` write
-against DynamoDB Local. It checks NativeAOT execution and materialized values. Generation and
+per-framework generation tests. Publish and run the NativeAOT runtime tests with `task test:aot-publish FRAMEWORK=net10.0` (or `net11.0`) — this is the NativeAOT path gated by CI for both EF Core
+versions. The tests run parameterized and materializing queries plus a `SaveChanges` write
+against DynamoDB Local. They check NativeAOT execution and materialized values. Generation and
 parity tests separately check generated PartiQL templates and execution behavior.
 If interceptor generation reports an incompatible EF Core version or executor preamble, update the
 provider rewrite and its compatibility tests together.

@@ -4,6 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PublishAot>true</PublishAot>
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
     <IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <WarningsNotAsErrors>$(WarningsNotAsErrors);IL2026;IL3050</WarningsNotAsErrors>
@@ -27,5 +28,11 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Testcontainers.DynamoDb" />
+    <PackageReference Include="xunit.v3.aot.mtp-v2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\DynamoDbLocalImage.cs" Link="DynamoDbLocalImage.cs" />
   </ItemGroup>
 </Project>

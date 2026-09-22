@@ -16,10 +16,10 @@ Queries must be discoverable as static LINQ expressions during the build. Querie
 runtime from expression trees cannot be intercepted and precompiled.
 
 NativeAOT publishing can report trimming and dynamic-code warnings from EF Core, the AWS SDK, or
-provider paths outside query execution. The provider's smoke build allows those warnings while AOT
+provider paths outside query execution. The provider's NativeAOT test build allows those warnings while AOT
 support remains experimental; a warning-free trimmed application is not yet guaranteed.
 
-CI publishes and runs the NativeAOT smoke application for both EF Core 10 and EF Core 11.
+CI publishes and runs the NativeAOT runtime test project for both EF Core 10 and EF Core 11.
 
 The tested native path supports scalar entity properties, including nullable numbers, Boolean,
 binary, configured scalar conversions, and one-dimensional arrays with non-nullable elements.
@@ -39,7 +39,7 @@ NativeAOT. Keep those collection or dictionary values out of entities materializ
 NativeAOT queries until EF Core resolves the issue.
 
 Field-only properties can hit the same limitation. Basic scalar properties and arrays are covered
-by the native smoke test because their materialization uses a field write, not a field read.
+by the native runtime tests because their materialization uses a field write, not a field read.
 
 Query execution is asynchronous only. Synchronous query operators and enumeration throw
 `InvalidOperationException`; use `ToListAsync`, `FirstAsync`, `ToPageAsync`, or
@@ -100,6 +100,12 @@ where it would use reflection that is not supported under NativeAOT.
 
 See [Precompiled Queries and NativeAOT](querying/precompiled-queries.md) for supported setup and
 verification.
+
+### Runtime resource names and `WithIndex`
+
+When [runtime resource names](configuration/runtime-resource-names.md) are configured, a precompiled
+query that calls `WithIndex` keeps the physical index name from design time; it is not remapped. See
+[Runtime resource names](configuration/runtime-resource-names.md) for the supported patterns.
 
 ## Database lifecycle
 

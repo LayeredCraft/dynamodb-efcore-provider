@@ -123,9 +123,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             typeof(DynamoGeneratedQueryRuntime.UpdateTemplate));
     }
 
-    private Expression CreateUpdateTemplateExpression(
-        DynamoGeneratedQueryRuntime.UpdateTemplate template,
-        ParameterExpression context)
+    private Expression
+        CreateUpdateTemplateExpression(
+            DynamoGeneratedQueryRuntime.UpdateTemplate template,
+            ParameterExpression context)
         => Call(
             typeof(DynamoGeneratedQueryRuntime),
             nameof(DynamoGeneratedQueryRuntime.CreateUpdateTemplate),
@@ -133,7 +134,11 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             NewArrayInit(
                 typeof(DynamoGeneratedQueryRuntime.CommandSegment),
                 CreateCommandSegmentExpressions(template.Segments, context)),
-            Constant(template.TableName));
+            Constant(template.TableName),
+            Property(
+                Property(context, nameof(MaterializerLiftableConstantContext.Dependencies)),
+                nameof(ShapedQueryCompilingExpressionVisitorDependencies.Model)),
+            Constant(template.QueryEntityTypeName, typeof(string)));
 
     /// <summary>Generates the PartiQL UPDATE statement and executes it, returning the count.</summary>
     internal static Task<int> ExecuteUpdateResultAsync(
@@ -332,7 +337,18 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             Type.EmptyTypes,
             NewArrayInit(typeof(DynamoGeneratedQueryRuntime.CommandSegment), segments),
             Constant(template.TableName),
+            Property(
+                Property(context, nameof(MaterializerLiftableConstantContext.Dependencies)),
+                nameof(ShapedQueryCompilingExpressionVisitorDependencies.Model)),
+            Constant(template.QueryEntityTypeName, typeof(string)),
             Constant(template.IndexName, typeof(string)),
+            Constant(template.IndexDeclaringEntityTypeName, typeof(string)),
+            template.IndexPropertyNames is null
+                ? Constant(null, typeof(string[]))
+                : NewArrayInit(
+                    typeof(string),
+                    template.IndexPropertyNames.Select(static name => Constant(name))),
+            Constant(template.IndexOrdinal, typeof(int?)),
             Constant(template.IsGlobalSecondaryIndex),
             Constant(template.IsScanLike),
             Constant(template.ScanMessage, typeof(string)),

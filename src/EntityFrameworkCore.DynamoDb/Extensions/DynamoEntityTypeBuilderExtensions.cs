@@ -31,6 +31,35 @@ public static class DynamoEntityTypeBuilderExtensions
         }
 
         /// <summary>
+        ///     Declares the <b>logical table identity</b> of the table this entity type maps to: a stable
+        ///     model identity that is independent of the table's physical DynamoDB name.
+        /// </summary>
+        /// <remarks>
+        ///     <para>
+        ///         This is infrastructure for one scenario: mapping an EF <b>compiled model</b> (for
+        ///         example a Native AOT application) to an environment-specific physical table at runtime
+        ///         with <c>UseDynamo(o =&gt; o.RuntimeResourceNames(...))</c>. Most applications do not need
+        ///         it. If you use ordinary EF model building, or your physical table names are the same in
+        ///         every environment, configure the table with <c>ToTable(...)</c> only.
+        ///     </para>
+        ///     <para>
+        ///         <c>ToTable(...)</c> remains the <b>physical resource name</b> (the design-time value the
+        ///         model, and any compiled model, is built with). The logical table identity belongs to the
+        ///         table, not to one entity type: entity types that share a table can declare it on any one
+        ///         of them, and conflicting logical table identities within one table are a model
+        ///         validation error.
+        ///     </para>
+        /// </remarks>
+        /// <param name="logicalName">The logical table identity.</param>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public EntityTypeBuilder HasLogicalTableName(string logicalName)
+        {
+            logicalName.NotEmpty();
+            entityTypeBuilder.Metadata.SetLogicalTableName(logicalName);
+            return entityTypeBuilder;
+        }
+
+        /// <summary>
         ///     Configures which property provides the DynamoDB partition key attribute name for this
         ///     entity type.
         /// </summary>
@@ -184,6 +213,44 @@ public static class DynamoEntityTypeBuilderExtensions
 
     extension(IConventionEntityTypeBuilder entityTypeBuilder)
     {
+        /// <summary>Declares the logical table identity of the table this entity type maps to.</summary>
+        /// <param name="logicalName">The logical table identity, or <see langword="null" /> to clear the declaration.</param>
+        /// <param name="fromDataAnnotation">
+        ///     <see langword="true" /> if configured via a data annotation;
+        ///     <see langword="false" /> for the fluent API.
+        /// </param>
+        /// <returns>The same builder instance if the logical table identity was set; otherwise <see langword="null" />.</returns>
+        public IConventionEntityTypeBuilder? HasLogicalTableName(
+            string? logicalName,
+            bool fromDataAnnotation = false)
+        {
+            logicalName = logicalName.NullButNotEmpty();
+            if (!entityTypeBuilder.CanSetAnnotation(
+                DynamoAnnotationNames.LogicalTableName,
+                logicalName,
+                fromDataAnnotation))
+                return null;
+
+            entityTypeBuilder.Metadata.SetOrRemoveAnnotation(
+                DynamoAnnotationNames.LogicalTableName,
+                logicalName,
+                fromDataAnnotation);
+            return entityTypeBuilder;
+        }
+
+        /// <summary>Returns whether the logical table identity can be set from the given configuration source.</summary>
+        /// <param name="logicalName">The logical table identity, or <see langword="null" /> to clear the declaration.</param>
+        /// <param name="fromDataAnnotation">
+        ///     <see langword="true" /> if configured via a data annotation;
+        ///     <see langword="false" /> for the fluent API.
+        /// </param>
+        /// <returns><see langword="true" /> if the logical table identity can be set; otherwise <see langword="false" />.</returns>
+        public bool CanSetLogicalTableName(string? logicalName, bool fromDataAnnotation = false)
+            => entityTypeBuilder.CanSetAnnotation(
+                DynamoAnnotationNames.LogicalTableName,
+                logicalName.NullButNotEmpty(),
+                fromDataAnnotation);
+
         /// <summary>Configures the table that the entity type maps to when targeting AWS DynamoDB.</summary>
         /// <param name="name">The table name, or <see langword="null" /> to clear the explicit table mapping.</param>
         /// <param name="fromDataAnnotation">
@@ -233,6 +300,19 @@ public static class DynamoEntityTypeBuilderExtensions
         {
             name.NullButNotEmpty();
             entityTypeBuilder.Metadata.SetOrRemoveAnnotation(DynamoAnnotationNames.TableName, name);
+            return entityTypeBuilder;
+        }
+
+        /// <summary>
+        ///     Declares the <b>logical table identity</b> of the table this entity type maps to. See the
+        ///     non-generic overload for when this is (and is not) needed.
+        /// </summary>
+        /// <param name="logicalName">The logical table identity.</param>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public EntityTypeBuilder<TEntity> HasLogicalTableName(string logicalName)
+        {
+            logicalName.NotEmpty();
+            entityTypeBuilder.Metadata.SetLogicalTableName(logicalName);
             return entityTypeBuilder;
         }
 

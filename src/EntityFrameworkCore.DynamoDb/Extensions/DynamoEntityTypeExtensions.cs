@@ -12,6 +12,15 @@ public static class DynamoEntityTypeExtensions
 {
     extension(IMutableEntityType entityType)
     {
+        /// <summary>Sets the logical table identity declared on this entity type.</summary>
+        /// <param name="name">
+        ///     The logical table identity. Pass <see langword="null" /> to clear the declaration.
+        /// </param>
+        public void SetLogicalTableName(string? name)
+            => entityType.SetOrRemoveAnnotation(
+                DynamoAnnotationNames.LogicalTableName,
+                name.NullButNotEmpty());
+
         /// <summary>Sets the DynamoDB table name for the root entity type.</summary>
         /// <param name="name">
         ///     The DynamoDB table name. Pass <see langword="null" /> to clear the explicit mapping.
@@ -87,6 +96,30 @@ public static class DynamoEntityTypeExtensions
 
     extension(IReadOnlyEntityType entityType)
     {
+        /// <summary>Gets the logical table identity of the DynamoDB table this entity type is mapped to.</summary>
+        /// <remarks>
+        ///     <para>
+        ///         The logical table identity identifies a DynamoDB table independently of its
+        ///         environment-specific physical name, and belongs to the table, not to one entity type:
+        ///         it is the identity declared with <c>HasLogicalTableName</c> on <em>any</em> entity type
+        ///         mapped to the same table. Every entity type of a shared table therefore returns the
+        ///         same value, and an entity type mapped to a different table does not return the
+        ///         identity of its base type's table.
+        ///     </para>
+        ///     <para>
+        ///         It is only needed to map a compiled model to a physical table at runtime with
+        ///         <c>RuntimeResourceNames</c>. The call reads model metadata by scanning the model's
+        ///         entity types, so avoid it in hot paths.
+        ///     </para>
+        /// </remarks>
+        /// <returns>The table's logical identity, or <see langword="null" /> when none is declared.</returns>
+        /// <exception cref="InvalidOperationException">
+        ///     The entity types of the table declare conflicting logical identities, which model
+        ///     validation rejects.
+        /// </exception>
+        public string? GetLogicalTableName()
+            => DynamoTableGroups.ResolveLogicalTableName(entityType);
+
         /// <summary>Gets the name of the EF property that maps to the DynamoDB partition key.</summary>
         /// <remarks>
         ///     Returns the configured partition key property annotation when present.
@@ -212,6 +245,30 @@ public static class DynamoEntityTypeExtensions
 
     extension(IConventionEntityType entityType)
     {
+        /// <summary>Sets the logical table identity at the given configuration source.</summary>
+        /// <param name="name">The logical table identity, or <see langword="null" /> to clear the declaration.</param>
+        /// <param name="fromDataAnnotation">
+        ///     <see langword="true" /> if configured via a data annotation;
+        ///     <see langword="false" /> for the fluent API.
+        /// </param>
+        /// <returns>The configured logical table identity, or <see langword="null" /> if configuration was not applied.</returns>
+        public string? SetLogicalTableName(string? name, bool fromDataAnnotation = false)
+            => (string?)entityType.SetOrRemoveAnnotation(
+                    DynamoAnnotationNames.LogicalTableName,
+                    name.NullButNotEmpty(),
+                    fromDataAnnotation)
+                ?.Value;
+
+        /// <summary>
+        ///     Returns the configuration source of the logical table identity declared on this entity type
+        ///     itself (not the identity resolved for its table).
+        /// </summary>
+        /// <returns>The configuration source, or <see langword="null" /> if this entity type declares none.</returns>
+        public ConfigurationSource? GetLogicalTableNameConfigurationSource()
+            => entityType
+                .FindAnnotation(DynamoAnnotationNames.LogicalTableName)
+                ?.GetConfigurationSource();
+
         /// <summary>Sets the DynamoDB table name at the given configuration source.</summary>
         /// <param name="name">The table name, or <see langword="null" /> to clear the explicit mapping.</param>
         /// <param name="fromDataAnnotation">

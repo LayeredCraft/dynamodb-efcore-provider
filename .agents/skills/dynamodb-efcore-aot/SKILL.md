@@ -49,10 +49,9 @@ task test:aot-publish FRAMEWORK=net11.0
 The generation test must compile generated interceptors and cover scalar parameters, collection
 parameters, entity materialization, and a property value converter. The publish test generates a
 physical `TargetFrameworkOverride.props` (see `scripts/write-target-framework-override.sh`),
-builds the native executable, runs it against DynamoDB Local via
-`scripts/run-nativeaot-smoke.sh`, validates materialization of the seeded items, and clears the
-override afterward. Publish/run smoke validation is CI-gated for **both** EF10 and EF11 (see
-`testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke/AGENTS.md`).
+builds and runs `tests/EntityFrameworkCore.DynamoDb.NativeAotTests` against DynamoDB Local,
+checks the reviewed AOT warning baseline with `scripts/verify-nativeaot-warnings.sh`, and clears
+the override afterward. Publish/runtime validation is CI-gated for **both** EF10 and EF11.
 
 Before completion, also run:
 
