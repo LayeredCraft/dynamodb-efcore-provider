@@ -106,7 +106,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: LayeredCraft/devops-templates/.github/actions/nuget-push@07d4436f16fd9556b05458c1cddd9b50de24cde4
+      - uses: LayeredCraft/devops-templates/.github/actions/nuget-push@1401b8f0cdd8d97b6caf46284bf0e457615ff5ac
         with:
           nuget_user: ${{ secrets.NUGET_USER }}
           artifact_name: "nuget-packages-ef*"
