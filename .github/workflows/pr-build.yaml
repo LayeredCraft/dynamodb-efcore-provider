@@ -15,7 +15,7 @@ jobs:
     # Standard multi-targeting (net10.0;net11.0): a single Debug build/test pass already
     # validates both EF lines, no per-EF matrix needed. See
     # docs/internal/ef11-native-aot-implementation-plan.md.
-    uses: LayeredCraft/devops-templates/.github/workflows/pr-build.yaml@07d4436f16fd9556b05458c1cddd9b50de24cde4
+    uses: LayeredCraft/devops-templates/.github/workflows/pr-build.yaml@1401b8f0cdd8d97b6caf46284bf0e457615ff5ac
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx
       hasTests: true
