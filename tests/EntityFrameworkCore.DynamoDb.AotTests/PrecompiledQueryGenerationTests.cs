@@ -93,6 +93,7 @@ public class PrecompiledQueryGenerationTests
     {
         const string source = """
                               using System.Collections.Generic;
+                                   using System.Linq;
                               using System.Linq;
                               using System.Threading.Tasks;
                               using Microsoft.EntityFrameworkCore;
@@ -400,6 +401,7 @@ public class PrecompiledQueryGenerationTests
     {
         const string source = """
                               using System.Collections.Generic;
+                                   using System.Linq;
                               using System.Linq;
                               using System.Threading.Tasks;
                               using Microsoft.EntityFrameworkCore;
@@ -712,6 +714,7 @@ public class PrecompiledQueryGenerationTests
     {
         const string source = """
                               using System.Collections.Generic;
+                                   using System.Linq;
                               using System.Linq;
                               using System.Threading.Tasks;
                               using Microsoft.EntityFrameworkCore;
@@ -823,6 +826,7 @@ public class PrecompiledQueryGenerationTests
     {
         const string source = """
                               using System.Collections.Generic;
+                                   using System.Linq;
                               using System.Linq;
                               using System.Threading.Tasks;
                               using Microsoft.EntityFrameworkCore;
@@ -1016,6 +1020,672 @@ public class PrecompiledQueryGenerationTests
         }
     }
 
+    // Regression coverage for #335: EF Core's precompiled-query generator collects
+    // [UnsafeAccessor] declarations on a single translator instance shared across every source
+    // file in the compilation, and copies the whole accumulated set into each generated file
+    // rather than resetting it per file (upstream EF Core defect - private, non-virtual state).
+    // A file whose own queries touch only one entity type can therefore end up with accessors for
+    // entity types other files' queries touch, in namespaces this file never imports. Reproduces
+    // with three entities across three namespaces and three repositories, each in its own file,
+    // precompiled together - the shape a consolidated (single-project, multi-repository)
+    // application naturally has.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Generated_interceptors_fully_qualify_accessor_types_across_namespaces()
+    {
+        const string dataSource = """
+                                  using Microsoft.EntityFrameworkCore;
+
+                                  namespace GeneratedQueryTest.NamespaceA { public sealed class ItemA { public string Pk { get; set; } = null!; } }
+                                  namespace GeneratedQueryTest.NamespaceB { public sealed class ItemB { public string Pk { get; set; } = null!; } }
+                                  namespace GeneratedQueryTest.NamespaceC { public sealed class ItemC { public string Pk { get; set; } = null!; } }
+
+                                  namespace GeneratedQueryTest
+                                  {
+                                      using NamespaceA;
+                                      using NamespaceB;
+                                      using NamespaceC;
+
+                                      public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                                      {
+                                          public DbSet<ItemA> ItemsA => Set<ItemA>();
+                                          public DbSet<ItemB> ItemsB => Set<ItemB>();
+                                          public DbSet<ItemC> ItemsC => Set<ItemC>();
+
+                                          protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                          {
+                                              modelBuilder.Entity<ItemA>(entity => entity.HasPartitionKey(item => item.Pk));
+                                              modelBuilder.Entity<ItemB>(entity => entity.HasPartitionKey(item => item.Pk));
+                                              modelBuilder.Entity<ItemC>(entity => entity.HasPartitionKey(item => item.Pk));
+                                          }
+                                      }
+                                  }
+                                  """;
+        const string repoASource = """
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+                                   using System.Threading;
+                                   using System.Threading.Tasks;
+                                   using GeneratedQueryTest;
+                                   using GeneratedQueryTest.NamespaceA;
+                                   using Microsoft.EntityFrameworkCore;
+
+                                   namespace RepositoryA;
+
+                                   public static class RepoA
+                                   {
+                                       public static async Task<List<ItemA>> Get(DbContextOptions options, string key, CancellationToken cancellationToken)
+                                       {
+                                           await using var context = new TestContext(options);
+                                           var pk = key;
+                                           var token = cancellationToken;
+                                           var task = context.ItemsA.Where(item => item.Pk == pk).ToListAsync(token);
+                                           return await task.ConfigureAwait(false);
+                                       }
+                                   }
+                                   """;
+        const string repoBSource = """
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+                                   using System.Threading;
+                                   using System.Threading.Tasks;
+                                   using GeneratedQueryTest;
+                                   using GeneratedQueryTest.NamespaceB;
+                                   using Microsoft.EntityFrameworkCore;
+
+                                   namespace RepositoryB;
+
+                                   public static class RepoB
+                                   {
+                                       public static async Task<List<ItemB>> Get(DbContextOptions options, string key, CancellationToken cancellationToken)
+                                       {
+                                           await using var context = new TestContext(options);
+                                           var pk = key;
+                                           var token = cancellationToken;
+                                           var task = context.ItemsB.Where(item => item.Pk == pk).ToListAsync(token);
+                                           return await task.ConfigureAwait(false);
+                                       }
+                                   }
+                                   """;
+        const string repoCSource = """
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+                                   using System.Threading;
+                                   using System.Threading.Tasks;
+                                   using GeneratedQueryTest;
+                                   using GeneratedQueryTest.NamespaceC;
+                                   using Microsoft.EntityFrameworkCore;
+
+                                   namespace RepositoryC;
+
+                                   public static class RepoC
+                                   {
+                                       public static async Task<List<ItemC>> Get(DbContextOptions options, string key, CancellationToken cancellationToken)
+                                       {
+                                           await using var context = new TestContext(options);
+                                           var pk = key;
+                                           var token = cancellationToken;
+                                           var task = context.ItemsC.Where(item => item.Pk == pk).ToListAsync(token);
+                                           return await task.ConfigureAwait(false);
+                                       }
+                                   }
+                                   """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryTest",
+            [
+                CSharpSyntaxTree.ParseText(dataSource, parseOptions, path: "Data.cs"),
+                CSharpSyntaxTree.ParseText(repoASource, parseOptions, path: "RepoA.cs"),
+                CSharpSyntaxTree.ParseText(repoBSource, parseOptions, path: "RepoB.cs"),
+                CSharpSyntaxTree.ParseText(repoCSource, parseOptions, path: "RepoC.cs"),
+            ],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            // Three repository files, each precompiling one query: proves this is a genuine
+            // multi-file scenario, not a single generated file with multiple query regions.
+            generatedFiles.Should().HaveCount(3);
+
+            var repoBFile = generatedFiles.Single(file => file.Path.Contains("RepoB", StringComparison.Ordinal));
+            var repoCFile = generatedFiles.Single(file => file.Path.Contains("RepoC", StringComparison.Ordinal));
+
+            // RepoB's own query only touches ItemB, but the shared translator state leaks ItemA's
+            // accessor into this file too (see the class remarks on RewriteUnsafeAccessorTypes) -
+            // both must be resolvable without relying on `using` directives this file doesn't have.
+            repoBFile.Code.Should().Contain("global::GeneratedQueryTest.NamespaceA.ItemA");
+            repoBFile.Code.Should().Contain("global::GeneratedQueryTest.NamespaceB.ItemB");
+            repoCFile.Code.Should().Contain("global::GeneratedQueryTest.NamespaceA.ItemA");
+            repoCFile.Code.Should().Contain("global::GeneratedQueryTest.NamespaceB.ItemB");
+            repoCFile.Code.Should().Contain("global::GeneratedQueryTest.NamespaceC.ItemC");
+            // No bare, unqualified reference to a foreign-namespace type remains in an unsafe
+            // accessor declaration (the shape that produced CS0246 before this fix).
+            repoBFile.Code.Should().NotContain("Set(ItemA instance)");
+            repoCFile.Code.Should().NotContain("Set(ItemA instance)");
+            repoCFile.Code.Should().NotContain("Set(ItemB instance)");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                generatedFiles.Select(file
+                    => CSharpSyntaxTree.ParseText(file.Code, parseOptions, file.Path)));
+            AssertCompilationSucceeded(generatedCompilation);
+            generatedCompilation
+                .GetDiagnostics()
+                .Where(diagnostic
+                    => diagnostic.Severity >= DiagnosticSeverity.Warning
+                    && InterceptorWarningIds.Contains(diagnostic.Id))
+                .Should()
+                .BeEmpty();
+
+            var (generatedLoadContext, generatedAssembly) = EmitAndLoad(generatedCompilation);
+            try
+            {
+                var store = new Dictionary<string, Dictionary<string, AttributeValue>>
+                {
+                    ["a-key"] = new()
+                    {
+                        ["pk"] = new() { S = "a-key" }, ["$type"] = new() { S = "ItemA" }
+                    },
+                    ["b-key"] = new()
+                    {
+                        ["pk"] = new() { S = "b-key" }, ["$type"] = new() { S = "ItemB" }
+                    },
+                    ["c-key"] = new()
+                    {
+                        ["pk"] = new() { S = "c-key" }, ["$type"] = new() { S = "ItemC" }
+                    }
+                };
+                var fakeOptions = new DbContextOptionsBuilder()
+                    // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
+                    .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                    .UseDynamo(configure
+                        => configure.DynamoDbClient(
+                            CompiledModelExecutionTests.CreateFakeClient(store)))
+                    .Options;
+
+                async Task<System.Collections.IEnumerable> InvokeRepoAsync(string typeName, string key)
+                {
+                    var method = generatedAssembly.GetType(typeName)!.GetMethod("Get")!;
+                    var task = (Task)method.Invoke(null, [fakeOptions, key, CancellationToken.None])!;
+                    await task;
+                    return (System.Collections.IEnumerable)task.GetType().GetProperty("Result")!.GetValue(task)!;
+                }
+
+                var resultA = await InvokeRepoAsync("RepositoryA.RepoA", "a-key");
+                var resultB = await InvokeRepoAsync("RepositoryB.RepoB", "b-key");
+                var resultC = await InvokeRepoAsync("RepositoryC.RepoC", "c-key");
+
+                resultA.Cast<object>().Single().GetType().FullName
+                    .Should().Be("GeneratedQueryTest.NamespaceA.ItemA");
+                resultB.Cast<object>().Single().GetType().FullName
+                    .Should().Be("GeneratedQueryTest.NamespaceB.ItemB");
+                resultC.Cast<object>().Single().GetType().FullName
+                    .Should().Be("GeneratedQueryTest.NamespaceC.ItemC");
+            }
+            finally
+            {
+                generatedLoadContext.Unload();
+            }
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    // Regression coverage for the namespace-collision case #335 also had to handle: two mapped
+    // entity types sharing a simple CLR name but declared in different namespaces. Adding a
+    // `using` for the second namespace would still be ambiguous; only a fully qualified reference
+    // disambiguates which "Item" an accessor is for.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Generated_interceptors_disambiguate_entity_types_sharing_a_simple_name()
+    {
+        const string dataSource = """
+                                  using Microsoft.EntityFrameworkCore;
+
+                                  namespace GeneratedQueryTest.CollisionA { public sealed class Item { public string Pk { get; set; } = null!; } }
+                                  namespace GeneratedQueryTest.CollisionB { public sealed class Item { public string Pk { get; set; } = null!; } }
+
+                                  namespace GeneratedQueryTest
+                                  {
+                                      public sealed class CollisionContext(DbContextOptions options) : DbContext(options)
+                                      {
+                                          public DbSet<CollisionA.Item> ItemsA => Set<CollisionA.Item>();
+                                          public DbSet<CollisionB.Item> ItemsB => Set<CollisionB.Item>();
+
+                                          protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                          {
+                                              modelBuilder.Entity<CollisionA.Item>(entity =>
+                                              {
+                                                  DynamoEntityTypeBuilderExtensions.ToTable(entity, "ItemsA");
+                                                  entity.HasPartitionKey(item => item.Pk);
+                                              });
+                                              modelBuilder.Entity<CollisionB.Item>(entity =>
+                                              {
+                                                  DynamoEntityTypeBuilderExtensions.ToTable(entity, "ItemsB");
+                                                  entity.HasPartitionKey(item => item.Pk);
+                                              });
+                                          }
+                                      }
+                                  }
+                                  """;
+        const string repoASource = """
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+                                   using System.Threading;
+                                   using System.Threading.Tasks;
+                                   using GeneratedQueryTest;
+                                   using GeneratedQueryTest.CollisionA;
+                                   using Microsoft.EntityFrameworkCore;
+
+                                   namespace CollisionRepositoryA;
+
+                                   public static class CollisionRepoA
+                                   {
+                                       // Declared as the fully qualified type rather than the "using"-resolved
+                                       // simple name "Item", matching what the query itself produces - avoids any
+                                       // dependence on how "Item" happens to resolve in this file's scope.
+                                       public static async Task<List<GeneratedQueryTest.CollisionA.Item>> Get(DbContextOptions options, string key, CancellationToken cancellationToken)
+                                       {
+                                           await using var context = new CollisionContext(options);
+                                           var pk = key;
+                                           var token = cancellationToken;
+                                           var task = context.ItemsA.Where(item => item.Pk == pk).ToListAsync(token);
+                                           return await task.ConfigureAwait(false);
+                                       }
+                                   }
+                                   """;
+        const string repoBSource = """
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+                                   using System.Threading;
+                                   using System.Threading.Tasks;
+                                   using GeneratedQueryTest;
+                                   using GeneratedQueryTest.CollisionB;
+                                   using Microsoft.EntityFrameworkCore;
+
+                                   namespace CollisionRepositoryB;
+
+                                   public static class CollisionRepoB
+                                   {
+                                       // Declared as the fully qualified type rather than the "using"-resolved
+                                       // simple name "Item", matching what the query itself produces - avoids any
+                                       // dependence on how "Item" happens to resolve in this file's scope.
+                                       public static async Task<List<GeneratedQueryTest.CollisionB.Item>> Get(DbContextOptions options, string key, CancellationToken cancellationToken)
+                                       {
+                                           await using var context = new CollisionContext(options);
+                                           var pk = key;
+                                           var token = cancellationToken;
+                                           var task = context.ItemsB.Where(item => item.Pk == pk).ToListAsync(token);
+                                           return await task.ConfigureAwait(false);
+                                       }
+                                   }
+                                   """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryCollisionTest",
+            [
+                CSharpSyntaxTree.ParseText(dataSource, parseOptions, path: "CollisionData.cs"),
+                CSharpSyntaxTree.ParseText(repoASource, parseOptions, path: "CollisionRepoA.cs"),
+                CSharpSyntaxTree.ParseText(repoBSource, parseOptions, path: "CollisionRepoB.cs"),
+            ],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                // EF's service-provider counter is process-wide; distinct configurations intentionally create distinct providers.
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.CollisionContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            generatedFiles.Should().HaveCount(2);
+
+            var repoBFile = generatedFiles.Single(file => file.Path.Contains("CollisionRepoB", StringComparison.Ordinal));
+            // A bare `using GeneratedQueryTest.CollisionA;` would have made "Item" ambiguous here
+            // (CollisionA.Item and this file's own CollisionB.Item both resolve); only a fully
+            // qualified reference is unambiguous.
+            repoBFile.Code.Should().Contain("global::GeneratedQueryTest.CollisionA.Item");
+            repoBFile.Code.Should().Contain("global::GeneratedQueryTest.CollisionB.Item");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                generatedFiles.Select(file
+                    => CSharpSyntaxTree.ParseText(file.Code, parseOptions, file.Path)));
+            AssertCompilationSucceeded(generatedCompilation);
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    // Regression coverage for review finding #2 on #335/#336: qualifying only an accessor's
+    // *declaring* type is not enough. A leaked accessor for EntityB's complex property also carries
+    // EntityB's complex type (NamespaceC.Value) in its own field/return-type position, in a file
+    // that imports neither namespace - both types need qualifying, not just the declaring one.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Generated_interceptors_fully_qualify_a_leaked_complex_propertys_own_type()
+    {
+        const string dataSource = """
+                                  using Microsoft.EntityFrameworkCore;
+
+                                  namespace GeneratedQueryTest.SignatureA { public sealed class ItemA { public string Pk { get; set; } = null!; } }
+                                  namespace GeneratedQueryTest.SignatureC { public sealed class Value { public string Text { get; set; } = null!; } }
+                                  namespace GeneratedQueryTest.SignatureB
+                                  {
+                                      public sealed class EntityB
+                                      {
+                                          public string Pk { get; set; } = null!;
+                                          public SignatureC.Value Detail { get; set; } = new();
+                                      }
+                                  }
+
+                                  namespace GeneratedQueryTest
+                                  {
+                                      public sealed class SignatureContext(DbContextOptions options) : DbContext(options)
+                                      {
+                                          public DbSet<SignatureA.ItemA> ItemsA => Set<SignatureA.ItemA>();
+                                          public DbSet<SignatureB.EntityB> ItemsB => Set<SignatureB.EntityB>();
+
+                                          protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                          {
+                                              modelBuilder.Entity<SignatureA.ItemA>(entity =>
+                                              {
+                                                  DynamoEntityTypeBuilderExtensions.ToTable(entity, "ItemsA");
+                                                  entity.HasPartitionKey(item => item.Pk);
+                                              });
+                                              modelBuilder.Entity<SignatureB.EntityB>(entity =>
+                                              {
+                                                  DynamoEntityTypeBuilderExtensions.ToTable(entity, "ItemsB");
+                                                  entity.HasPartitionKey(item => item.Pk);
+                                                  entity.ComplexProperty(item => item.Detail);
+                                              });
+                                          }
+                                      }
+                                  }
+                                  """;
+        const string repoASource = """
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+                                   using System.Threading;
+                                   using System.Threading.Tasks;
+                                   using GeneratedQueryTest;
+                                   using GeneratedQueryTest.SignatureA;
+                                   using Microsoft.EntityFrameworkCore;
+
+                                   namespace SignatureRepositoryA;
+
+                                   public static class SignatureRepoA
+                                   {
+                                       public static async Task<List<ItemA>> Get(DbContextOptions options, string key, CancellationToken cancellationToken)
+                                       {
+                                           await using var context = new SignatureContext(options);
+                                           var pk = key;
+                                           var token = cancellationToken;
+                                           var task = context.ItemsA.Where(item => item.Pk == pk).ToListAsync(token);
+                                           return await task.ConfigureAwait(false);
+                                       }
+                                   }
+                                   """;
+        const string repoBSource = """
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+                                   using System.Threading;
+                                   using System.Threading.Tasks;
+                                   using GeneratedQueryTest;
+                                   using GeneratedQueryTest.SignatureB;
+                                   using Microsoft.EntityFrameworkCore;
+
+                                   namespace SignatureRepositoryB;
+
+                                   public static class SignatureRepoB
+                                   {
+                                       public static async Task<List<EntityB>> Get(DbContextOptions options, string key, CancellationToken cancellationToken)
+                                       {
+                                           await using var context = new SignatureContext(options);
+                                           var pk = key;
+                                           var token = cancellationToken;
+                                           var task = context.ItemsB.Where(item => item.Pk == pk).ToListAsync(token);
+                                           return await task.ConfigureAwait(false);
+                                       }
+                                   }
+                                   """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQuerySignatureTest",
+            [
+                CSharpSyntaxTree.ParseText(dataSource, parseOptions, path: "SignatureData.cs"),
+                CSharpSyntaxTree.ParseText(repoASource, parseOptions, path: "SignatureRepoA.cs"),
+                CSharpSyntaxTree.ParseText(repoBSource, parseOptions, path: "SignatureRepoB.cs"),
+            ],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.SignatureContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            generatedFiles.Should().HaveCount(2);
+
+            // RepoA's own type leaks into RepoB's generated file here; assert on RepoB's file
+            // regardless, since the fix fully qualifies every accessor's types unconditionally
+            // (not only ones it detects as leaked) - proving both the declaring type (EntityB) and
+            // the complex property's own type (Value, a third namespace) are qualified together.
+            var repoBFile = generatedFiles.Single(file => file.Path.Contains("SignatureRepoB", StringComparison.Ordinal));
+            repoBFile.Code.Should().Contain("global::GeneratedQueryTest.SignatureA.ItemA");
+            repoBFile.Code.Should().Contain("global::GeneratedQueryTest.SignatureB.EntityB");
+            repoBFile.Code.Should().Contain("global::GeneratedQueryTest.SignatureC.Value");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                generatedFiles.Select(file
+                    => CSharpSyntaxTree.ParseText(file.Code, parseOptions, file.Path)));
+            AssertCompilationSucceeded(generatedCompilation);
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    // Regression coverage for review finding #3 on #335/#336: a mapped CLR type that is itself a
+    // nested type must render using C#'s nested-type syntax ("Outer.Inner"), not the CLR metadata
+    // "+" separator ("Outer+Inner"), which is not valid as a C# type reference.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Generated_interceptors_render_a_nested_mapped_type_using_dot_syntax()
+    {
+        const string source = """
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest.Nesting
+                              {
+                                  public sealed class Outer
+                                  {
+                                      public sealed class Inner
+                                      {
+                                          public string Pk { get; set; } = null!;
+                                      }
+                                  }
+                              }
+
+                              namespace GeneratedQueryTest
+                              {
+                                  public sealed class NestedContext(DbContextOptions options) : DbContext(options)
+                                  {
+                                      public DbSet<Nesting.Outer.Inner> Items => Set<Nesting.Outer.Inner>();
+
+                                      protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                      {
+                                          modelBuilder.Entity<Nesting.Outer.Inner>(entity =>
+                                          {
+                                              entity.HasPartitionKey(item => item.Pk);
+                                          });
+                                      }
+                                  }
+                              }
+
+                              namespace NestedRepository
+                              {
+                                  using System.Collections.Generic;
+                                  using System.Linq;
+                                  using System.Threading;
+                                  using System.Threading.Tasks;
+                                  using GeneratedQueryTest;
+                                  using GeneratedQueryTest.Nesting;
+
+                                  public static class NestedRepo
+                                  {
+                                      public static async Task<List<Outer.Inner>> Get(DbContextOptions options, string key, CancellationToken cancellationToken)
+                                      {
+                                          await using var context = new NestedContext(options);
+                                          var pk = key;
+                                          var token = cancellationToken;
+                                          var task = context.Items.Where(item => item.Pk == pk).ToListAsync(token);
+                                          return await task.ConfigureAwait(false);
+                                      }
+                                  }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryNestedTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "Nested.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.NestedContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            var generatedFile = generatedFiles.Single();
+            // The accessor's own type reference must use C# nested-type syntax; EF Core's other,
+            // string-literal uses of the CLR full name (entity-type model lookups by name) are
+            // unaffected and legitimately use '+' - this only asserts the C# type reference itself.
+            generatedFile.Code.Should().Contain(
+                "private static extern ref string UnsafeAccessor_GeneratedQueryTest_Nesting_Inner_Pk_Set"
+                + "(global::GeneratedQueryTest.Nesting.Outer.Inner instance);");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                CSharpSyntaxTree.ParseText(generatedFile.Code, parseOptions, generatedFile.Path));
+            AssertCompilationSucceeded(generatedCompilation);
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
     // Regression coverage for an EF Core 10-only precompiler defect discovered while validating
     // the complex-collection fixes above (not caused by this provider): a precompiled no-tracking
     // query generates a local variable named after the entity type's full CLR name, which is
@@ -1027,6 +1697,7 @@ public class PrecompiledQueryGenerationTests
     {
         const string source = """
                               using System.Collections.Generic;
+                                   using System.Linq;
                               using System.Linq;
                               using System.Threading.Tasks;
                               using Microsoft.EntityFrameworkCore;
@@ -1132,6 +1803,7 @@ public class PrecompiledQueryGenerationTests
     {
         const string source = """
                               using System.Collections.Generic;
+                                   using System.Linq;
                               using System.Linq;
                               using System.Threading.Tasks;
                               using Microsoft.EntityFrameworkCore;
@@ -1252,6 +1924,7 @@ public class PrecompiledQueryGenerationTests
         // below, alongside parameterized WithNextToken.
         const string source = """
                               using System.Collections.Generic;
+                                   using System.Linq;
                               using System.Linq;
                               using System.Threading.Tasks;
                               using Microsoft.EntityFrameworkCore;
@@ -1422,6 +2095,7 @@ public class PrecompiledQueryGenerationTests
     {
         const string source = """
                               using System.Collections.Generic;
+                                   using System.Linq;
                               using System.Linq;
                               using System.Threading.Tasks;
                               using Microsoft.EntityFrameworkCore;
@@ -1580,6 +2254,7 @@ public class PrecompiledQueryGenerationTests
     {
         const string source = """
                               using System.Collections.Generic;
+                                   using System.Linq;
                               using System.Linq;
                               using System.Threading.Tasks;
                               using Microsoft.EntityFrameworkCore;
@@ -1769,12 +2444,22 @@ public class PrecompiledQueryGenerationTests
         }
     }
 
+    // Deliberately does NOT enumerate every *.dll in AppContext.BaseDirectory: in CI, several test
+    // projects' outputs are published into one shared per-framework directory, so that directory
+    // can contain sibling test projects' own dependencies that this project never references at
+    // all - including EF Core's own specification-test package, which declares its own generically
+    // named nested test-fixture types (e.g. a type literally named "Item"). Referencing those makes
+    // this compilation's "using Microsoft.EntityFrameworkCore;" resolve a bare "Item" identifier to
+    // one of THOSE unrelated types instead of the one this test itself defines - reproducible only
+    // in that shared-output environment, never in a normal per-project build. Only this process's
+    // own actually-loaded assemblies (its real transitive closure) are safe to reference.
     private static IReadOnlyList<MetadataReference> GetMetadataReferences()
-        => ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
-            .Split(Path.PathSeparator)
-            .Concat(Directory.EnumerateFiles(AppContext.BaseDirectory, "*.dll"))
+        => AppDomain.CurrentDomain.GetAssemblies()
+            .Where(static assembly => !assembly.IsDynamic && !string.IsNullOrEmpty(assembly.Location))
+            .Select(static assembly => assembly.Location)
+            .Concat(((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Select(path => MetadataReference.CreateFromFile(path))
+            .Select(static path => MetadataReference.CreateFromFile(path))
             .ToArray();
 
     private static readonly HashSet<string> InterceptorWarningIds =
@@ -2199,6 +2884,798 @@ public class PrecompiledQueryGenerationTests
                 entity.HasPartitionKey(item => item.Pk);
                 DynamoEntityTypeBuilderExtensions.ToTable(entity, "SecondWidgets");
             });
+        }
+    }
+
+    // EF Core's translator builds the generated [UnsafeAccessor] method name by replacing every '.'
+    // in the declaring type's namespace with '_' - lossy, since "A_B.C" and "A.B_C" both fold to
+    // "A_B_C". Two field-backed properties whose declaring types collide this way produce two
+    // [UnsafeAccessor] declarations that are byte-for-byte identical *before* qualification (same
+    // generated name, same "instance" parameter type text, same return type) - nothing in the
+    // generated syntax distinguishes which one is which; that information exists only in EF Core's
+    // own internal, unobservable per-run state. The provider must recognize this and fail loudly
+    // rather than guess (see DynamoPrecompiledQueryCodeGenerator.ResolveAccessorMember).
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Generation_throws_on_an_irreducible_namespace_encoding_collision()
+    {
+        const string dataSource = """
+                                  using Microsoft.EntityFrameworkCore;
+
+                                  namespace GeneratedQueryTest.EncodingCollision.A_B.C { public sealed class Widget { public string Pk { get; set; } = null!; } }
+                                  namespace GeneratedQueryTest.EncodingCollision.A.B_C { public sealed class Widget { public string Pk { get; set; } = null!; } }
+
+                                  namespace GeneratedQueryTest
+                                  {
+                                      public sealed class EncodingCollisionContext(DbContextOptions options) : DbContext(options)
+                                      {
+                                          public DbSet<EncodingCollision.A_B.C.Widget> WidgetsA => Set<EncodingCollision.A_B.C.Widget>();
+                                          public DbSet<EncodingCollision.A.B_C.Widget> WidgetsB => Set<EncodingCollision.A.B_C.Widget>();
+
+                                          protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                          {
+                                              modelBuilder.Entity<EncodingCollision.A_B.C.Widget>(entity =>
+                                              {
+                                                  DynamoEntityTypeBuilderExtensions.ToTable(entity, "WidgetsA");
+                                                  entity.HasPartitionKey(item => item.Pk);
+                                              });
+                                              modelBuilder.Entity<EncodingCollision.A.B_C.Widget>(entity =>
+                                              {
+                                                  DynamoEntityTypeBuilderExtensions.ToTable(entity, "WidgetsB");
+                                                  entity.HasPartitionKey(item => item.Pk);
+                                              });
+                                          }
+                                      }
+                                  }
+                                  """;
+        const string repoASource = """
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+                                   using System.Threading;
+                                   using System.Threading.Tasks;
+                                   using GeneratedQueryTest;
+                                   using GeneratedQueryTest.EncodingCollision.A_B.C;
+                                   using Microsoft.EntityFrameworkCore;
+
+                                   namespace EncodingRepositoryA;
+
+                                   public static class EncodingRepoA
+                                   {
+                                       public static async Task<List<Widget>> Get(DbContextOptions options, string key, CancellationToken cancellationToken)
+                                       {
+                                           await using var context = new EncodingCollisionContext(options);
+                                           var pk = key;
+                                           var token = cancellationToken;
+                                           var task = context.WidgetsA.Where(item => item.Pk == pk).ToListAsync(token);
+                                           return await task.ConfigureAwait(false);
+                                       }
+                                   }
+                                   """;
+        const string repoBSource = """
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+                                   using System.Threading;
+                                   using System.Threading.Tasks;
+                                   using GeneratedQueryTest;
+                                   using GeneratedQueryTest.EncodingCollision.A.B_C;
+                                   using Microsoft.EntityFrameworkCore;
+
+                                   namespace EncodingRepositoryB;
+
+                                   public static class EncodingRepoB
+                                   {
+                                       public static async Task<List<Widget>> Get(DbContextOptions options, string key, CancellationToken cancellationToken)
+                                       {
+                                           await using var context = new EncodingCollisionContext(options);
+                                           var pk = key;
+                                           var token = cancellationToken;
+                                           var task = context.WidgetsB.Where(item => item.Pk == pk).ToListAsync(token);
+                                           return await task.ConfigureAwait(false);
+                                       }
+                                   }
+                                   """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryEncodingCollisionTest",
+            [
+                CSharpSyntaxTree.ParseText(dataSource, parseOptions, path: "EncodingData.cs"),
+                CSharpSyntaxTree.ParseText(repoASource, parseOptions, path: "EncodingRepoA.cs"),
+                CSharpSyntaxTree.ParseText(repoBSource, parseOptions, path: "EncodingRepoB.cs"),
+            ],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.EncodingCollisionContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+
+            var act = () => new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                compilation,
+                SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                context,
+                new Dictionary<MemberInfo, QualifiedName>(),
+                new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>(),
+                new HashSet<string>(),
+                assembly);
+
+            // Never a wrong bind, never a silent no-op: an explicit, diagnosable failure naming both
+            // colliding declaring types.
+            act.Should().Throw<InvalidOperationException>()
+                .WithMessage(
+                    "*cannot unambiguously attribute*GeneratedQueryTest.EncodingCollision.A*Widget*"
+                    + "GeneratedQueryTest.EncodingCollision.A*Widget*");
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    // Regression coverage for review finding #3 on #335/#336: a complex collection's own backing
+    // field is a constructed generic type (List<TestAnswer>) - both the generic type itself and its
+    // type argument must render fully qualified, with no bare CLR arity syntax (List`1).
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Generated_interceptors_fully_qualify_a_constructed_generic_accessor_type()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<TestItem> Items => Set<TestItem>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                  {
+                                      modelBuilder.Entity<TestItem>(entity =>
+                                      {
+                                          entity.HasPartitionKey(item => item.Pk);
+                                          entity.ComplexCollection(item => item.Answers);
+                                      });
+                                  }
+                              }
+
+                              public sealed class TestItem
+                              {
+                                  public string Pk { get; set; } = null!;
+                                  public List<TestAnswer> Answers { get; set; } = [];
+                              }
+
+                              public sealed class TestAnswer
+                              {
+                                  public string Text { get; set; } = null!;
+                              }
+
+                              public static class QueryContainer
+                              {
+                                  public static async Task<List<TestItem>> Get(DbContextOptions options)
+                                  {
+                                      await using var context = new TestContext(options);
+                                      return await context.Items.Where(item => item.Pk == "x").ToListAsync();
+                                  }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryGenericTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "Generic.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            var generatedFile = generatedFiles.Single();
+            generatedFile.Code.Should().Contain(
+                "global::System.Collections.Generic.List<global::GeneratedQueryTest.TestAnswer> "
+                + "UnsafeAccessor_GeneratedQueryTest_TestItem_Answers_Set");
+            generatedFile.Code.Should().NotContain("List`1");
+            generatedFile.Code.Should().NotContain("List`");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                CSharpSyntaxTree.ParseText(generatedFile.Code, parseOptions, generatedFile.Path));
+            AssertCompilationSucceeded(generatedCompilation);
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    // Regression coverage for review finding #3 on #335/#336: a mapped entity type declared in the
+    // global namespace (Type.Namespace is null) must still render as a valid, fully qualified
+    // ("global::TypeName", with no leading '.') accessor type - a scenario the provider does not
+    // forbid.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Generated_interceptors_qualify_a_global_namespace_entity_type()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              public sealed class GlobalNamespaceItem
+                              {
+                                  public string Pk { get; set; } = null!;
+                              }
+
+                              namespace GeneratedQueryTest
+                              {
+                                  public sealed class GlobalNamespaceContext(DbContextOptions options) : DbContext(options)
+                                  {
+                                      public DbSet<GlobalNamespaceItem> Items => Set<GlobalNamespaceItem>();
+
+                                      protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                      {
+                                          modelBuilder.Entity<GlobalNamespaceItem>(entity =>
+                                          {
+                                              entity.HasPartitionKey(item => item.Pk);
+                                          });
+                                      }
+                                  }
+
+                                  public static class QueryContainer
+                                  {
+                                      public static async Task<List<GlobalNamespaceItem>> Get(DbContextOptions options)
+                                      {
+                                          await using var context = new GlobalNamespaceContext(options);
+                                          return await context.Items.Where(item => item.Pk == "x").ToListAsync();
+                                      }
+                                  }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryGlobalNamespaceTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "GlobalNamespace.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.GlobalNamespaceContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            var generatedFile = generatedFiles.Single();
+            generatedFile.Code.Should().Contain(
+                "private static extern ref string UnsafeAccessor_GlobalNamespaceItem_Pk_Set"
+                + "(global::GlobalNamespaceItem instance);");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                CSharpSyntaxTree.ParseText(generatedFile.Code, parseOptions, generatedFile.Path));
+            AssertCompilationSucceeded(generatedCompilation);
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    // Regression coverage for the second independent review of #335/#336: a generated accessor
+    // name alone is not authoritative between different UnsafeAccessorKinds. Property "Pk"'s
+    // field-set accessor generates "UnsafeAccessor_{Ns}_Widget_Pk_Set", and a hand-written,
+    // zero-argument, never-invoked private method literally named "Pk_Set" generates the exact
+    // same name (Method kind never suffixes; this method's raw name already ends in "_Set"). Both
+    // declarations end up with exactly one declared parameter too (the field accessor's
+    // synthesized "instance" receiver; the method's zero declared parameters plus its own
+    // synthesized receiver) - so this provider's own reflected-member table has two genuinely
+    // colliding candidates for one generated name, distinguishable only by UnsafeAccessorKind
+    // (which EF Core's attribute already states structurally). The method itself is never actually
+    // referenced by the query below - only its mere presence on the type is needed to poison the
+    // candidate table - so EF Core only ever emits the one, real field accessor; that is enough to
+    // prove the resolver picks the right member kind rather than the wrong one by coincidence.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Generated_interceptors_disambiguate_accessors_by_kind_not_just_name_and_arity()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<Widget> Widgets => Set<Widget>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                  {
+                                      modelBuilder.Entity<Widget>(entity =>
+                                      {
+                                          entity.HasPartitionKey(item => item.Pk);
+                                      });
+                                  }
+                              }
+
+                              public sealed class Widget
+                              {
+                                  public string Pk { get; set; } = null!;
+
+                                  // Never called anywhere; exists only so this type's reflected-member
+                                  // table has a Method-kind candidate colliding, by generated name and
+                                  // declared-parameter-count alike, with Pk's Field-kind set accessor.
+                                  private int Pk_Set() => 0;
+                              }
+
+                              public static class QueryContainer
+                              {
+                                  public static async Task<List<Widget>> Get(DbContextOptions options)
+                                  {
+                                      await using var context = new TestContext(options);
+                                      return await context.Widgets.Where(item => item.Pk == "x").ToListAsync();
+                                  }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryKindCollisionTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "KindCollision.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            var generatedFile = generatedFiles.Single();
+
+            // Correct (Field-kind) resolution: the field's own type (string), by ref, on the Set
+            // accessor. A wrong (Method-kind) resolution would instead qualify the return type
+            // using Pk_Set()'s actual return type (int), which is observably different.
+            generatedFile.Code.Should().Contain(
+                "private static extern ref string UnsafeAccessor_GeneratedQueryTest_Widget_Pk_Set"
+                + "(global::GeneratedQueryTest.Widget instance);");
+            generatedFile.Code.Should().NotContain("Int32");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                CSharpSyntaxTree.ParseText(generatedFile.Code, parseOptions, generatedFile.Path));
+            AssertCompilationSucceeded(generatedCompilation);
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    // Regression coverage for a Codex review finding on #336: narrowing same-generated-name
+    // constructor overloads by parameter *count* alone is a false-positive ambiguity when their
+    // parameter *types* differ. Widget's private (string) constructor is the one EF Core actually
+    // materializes through (its only settable-via-constructor property is get-only); the unrelated,
+    // never-used (int) overload shares the same arity - and, since constructors are always named
+    // "Ctor" regardless of overload, the same generated accessor name - so both land in this
+    // provider's own reflected-member table under one key. Arity alone can't tell them apart; their
+    // actual parameter types can.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Generated_interceptors_disambiguate_same_arity_overloads_by_parameter_type()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<Widget> Widgets => Set<Widget>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                  {
+                                      modelBuilder.Entity<Widget>(entity =>
+                                      {
+                                          entity.HasPartitionKey(item => item.Pk);
+                                      });
+                                  }
+                              }
+
+                              public sealed class Widget
+                              {
+                                  private Widget(string pk)
+                                  {
+                                      Pk = pk;
+                                  }
+
+                                  // Never used for materialization (nothing maps an int-typed
+                                  // property named "value") - exists only so this type's reflected
+                                  // constructor table has a same-arity, same-generated-name, but
+                                  // differently-typed collision candidate.
+                                  private Widget(int value)
+                                  {
+                                      Pk = value.ToString();
+                                  }
+
+                                  public string Pk { get; }
+                              }
+
+                              public static class QueryContainer
+                              {
+                                  public static async Task<List<Widget>> Get(DbContextOptions options)
+                                  {
+                                      await using var context = new TestContext(options);
+                                      return await context.Widgets.Where(item => item.Pk == "x").ToListAsync();
+                                  }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryOverloadTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "Overload.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            var generatedFile = generatedFiles.Single();
+
+            // Correctly resolved to the (string) constructor: qualifies to Widget's own type as
+            // the return type, with a single string parameter. A wrong resolution to the (int)
+            // overload would instead produce a mismatched signature that fails to compile.
+            generatedFile.Code.Should().Contain("global::GeneratedQueryTest.Widget UnsafeAccessor_GeneratedQueryTest_Widget_Ctor(string");
+            generatedFile.Code.Should().NotContain("UnsafeAccessor_GeneratedQueryTest_Widget_Ctor(int");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                CSharpSyntaxTree.ParseText(generatedFile.Code, parseOptions, generatedFile.Path));
+            AssertCompilationSucceeded(generatedCompilation);
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    // Regression coverage for a human review finding on #336 (j-d-ha): comparing only the
+    // outermost leaf name is not enough to disambiguate overloads whose GENERIC TYPE ARGUMENTS
+    // differ - List<string> and List<int> both reduce to the leaf name "List". Property "Items"'
+    // real, private setter (List<string>) and a hand-written, never-invoked ordinary method also
+    // literally named "set_Items" (List<int> - a legal overload, since the parameter type differs)
+    // collide on generated name and outer leaf name alike; only their generic arguments differ.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Generated_interceptors_disambiguate_overloads_by_generic_type_argument()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<Widget> Widgets => Set<Widget>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                  {
+                                      modelBuilder.Entity<Widget>(entity =>
+                                      {
+                                          entity.HasPartitionKey(item => item.Pk);
+                                          entity
+                                              .PrimitiveCollection(item => item.Items)
+                                              .UsePropertyAccessMode(PropertyAccessMode.PreferProperty);
+                                      });
+                                  }
+                              }
+
+                              public sealed class Widget
+                              {
+                                  public string Pk { get; set; } = null!;
+                                  public List<string> Items { get; private set; } = [];
+
+                                  // Never invoked; exists only so this type's reflected member
+                                  // table has a same-name, same-arity, but different-generic-
+                                  // argument collision candidate for "set_Items".
+                                  private void set_Items(List<int> value)
+                                  {
+                                  }
+                              }
+
+                              public static class QueryContainer
+                              {
+                                  public static async Task<List<Widget>> Get(DbContextOptions options)
+                                  {
+                                      await using var context = new TestContext(options);
+                                      return await context.Widgets.Where(item => item.Pk == "x").ToListAsync();
+                                  }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryGenericOverloadTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "GenericOverload.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            var generatedFile = generatedFiles.Single();
+
+            // Correctly resolved to the real property setter (List<string>), not the unrelated
+            // hand-written overload (List<int>) that happens to share the generated name and arity.
+            generatedFile.Code.Should().Contain(
+                "UnsafeAccessor_GeneratedQueryTest_Widget_set_Items(global::GeneratedQueryTest.Widget instance,"
+                + "global::System.Collections.Generic.List<string> value)");
+            generatedFile.Code.Should().NotContain("List<int> value");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                CSharpSyntaxTree.ParseText(generatedFile.Code, parseOptions, generatedFile.Path));
+            AssertCompilationSucceeded(generatedCompilation);
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    // Regression coverage for a Codex review finding on #336: a nested type under a *constructed
+    // generic* containing type (Envelope<string>.Item) reports the containing type's own generic
+    // arguments through GetGenericArguments() in addition to any of its own - constructing its
+    // symbol directly with that full argument list mismatches its actual (here, zero) arity and
+    // throws. The containing type's symbol must be constructed first, then the nested type looked
+    // up from within it.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Generated_interceptors_qualify_a_nested_type_under_a_constructed_generic_container()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class Envelope<T>
+                              {
+                                  public sealed class Item
+                                  {
+                                      public string Text { get; set; } = null!;
+                                  }
+                              }
+
+                              public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<Widget> Widgets => Set<Widget>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                                  {
+                                      modelBuilder.Entity<Widget>(entity =>
+                                      {
+                                          entity.HasPartitionKey(item => item.Pk);
+                                          entity.ComplexProperty(item => item.Wrapped);
+                                      });
+                                  }
+                              }
+
+                              public sealed class Widget
+                              {
+                                  public string Pk { get; set; } = null!;
+                                  public Envelope<string>.Item Wrapped { get; set; } = new();
+                              }
+
+                              public static class QueryContainer
+                              {
+                                  public static async Task<List<Widget>> Get(DbContextOptions options)
+                                  {
+                                      await using var context = new TestContext(options);
+                                      return await context.Widgets.Where(item => item.Pk == "x").ToListAsync();
+                                  }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryNestedGenericTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "NestedGeneric.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder()
+                .ConfigureWarnings(warnings => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            var generatedFile = generatedFiles.Single();
+            generatedFile.Code.Should().Contain("global::GeneratedQueryTest.Envelope<string>.Item");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                CSharpSyntaxTree.ParseText(generatedFile.Code, parseOptions, generatedFile.Path));
+            AssertCompilationSucceeded(generatedCompilation);
+        }
+        finally
+        {
+            loadContext.Unload();
         }
     }
 
