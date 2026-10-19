@@ -1,6 +1,8 @@
 ---
 name: dynamodb-efcore-aot
 description: Implement, debug, or verify EF Core precompiled queries and NativeAOT for this DynamoDB provider. Use for generated query interceptors, compiled-model failures, AOT materializers, generated PartiQL templates, Microsoft.EntityFrameworkCore.Tasks integration, or NativeAOT publish failures.
+metadata:
+  internal: true
 ---
 
 # DynamoDB EF Core AOT

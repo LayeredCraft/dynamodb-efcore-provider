@@ -18,6 +18,7 @@ execution.
 - PartiQL generation: `src/EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQuerySqlGenerator.cs`
 - Execution: `src/EntityFrameworkCore.DynamoDb/Storage/DynamoClientWrapper.cs`
 - Type mapping: `src/EntityFrameworkCore.DynamoDb/Storage/DynamoTypeMappingSource.cs`
+- Repo-authored skills: `skills/` (each linked into `.agents/skills/` and `.claude/skills/`)
 
 ## Commands
 
@@ -92,12 +93,17 @@ execution.
 - For every PR, complete the documentation and provider-skill checks in the PR template.
 - Update `docs/` when user-facing behavior, configuration, diagnostics, limits, or setup changes.
 - Update `skills/dynamodb-efcore-provider/` when its guidance, file map, or sharp edges change.
+- Repo-authored skills live in `skills/<name>/`; `.agents/skills/<name>` and `.claude/skills/<name>` are
+  symlinks back to that copy. Edit only the `skills/` source.
+- Skills meant only for work in this repo carry `metadata.internal: true`, which hides them from
+  `npx skills add` unless `INSTALL_INTERNAL_SKILLS=1`. Only `dynamodb-efcore-provider` is public.
 - If either is not applicable, explain why in the PR description. Reviewers verify the decision.
 
 ## Repo Rules
 
 - Keep docs paths repo-relative.
-- Do not add, edit, move, or delete files under `.agents/skills/`.
+- Do not edit skill directories installed under `.agents/skills/` by the `skills` CLI. Repo-authored
+  skills belong in `skills/<name>/` and are linked into `.agents/skills/` and `.claude/skills/`.
 - When using the Beads workflow, see `BEADS.md` for command conventions and session protocol.
 
 ## Style Rules

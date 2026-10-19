@@ -1,6 +1,8 @@
 ---
 name: dynamodb-efcore-docs-update
 description: Update documentation for behavior changes in the DynamoDB EF Core provider. Use when LINQ translation, PartiQL generation, pagination/projection semantics, diagnostics, configuration, or supported limitations change.
+metadata:
+  internal: true
 ---
 
 # DynamoDB EF Core Docs Update
