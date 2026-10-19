@@ -111,3 +111,8 @@ Every PR must complete the documentation and provider-skill checks in the PR tem
 `docs/` for user-facing behavior, configuration, diagnostics, limits, or setup changes. Update
 `skills/dynamodb-efcore-provider/` when its guidance, file map, or sharp edges change. Explain any
 not-applicable decision in the PR description.
+
+Repo-authored skills live in `skills/<name>/` and are symlinked from `.agents/skills/<name>` and
+`.claude/skills/<name>`; edit only the `skills/` copy. Skills carrying `metadata.internal: true` are
+hidden from external `npx skills add` installs unless `INSTALL_INTERNAL_SKILLS=1` is set; the
+consumer-facing `dynamodb-efcore-provider` skill is the public one.
