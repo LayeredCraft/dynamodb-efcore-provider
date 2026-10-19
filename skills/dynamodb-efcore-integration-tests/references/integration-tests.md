@@ -10,8 +10,8 @@ DynamoDB Local (Testcontainers).
 - Suites (examples):
   - `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/`
   - `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/OwnedTypesTable/`
-- ## Shared helpers:
-  `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/TestUtilities/DynamoDbPerTestResetTestBase.cs`
+- Shared helpers:
+  - `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/TestUtilities/DynamoDbPerTestResetTestBase.cs`
   - `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/TestUtilities/DynamoDbSchemaManager.cs`
 
 ## Base classes (how tests get Db, seeding, and AssertSql)
