@@ -1,6 +1,8 @@
 ---
 name: dynamodb-efcore-integration-tests
 description: Write DynamoDB Local integration tests for this EF Core provider (fixtures, per-test resets, seed comparisons, PartiQL baselines).
+metadata:
+  internal: true
 ---
 
 # DynamoDB EF Core Integration Tests

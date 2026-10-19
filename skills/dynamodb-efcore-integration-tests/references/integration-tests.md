@@ -1,15 +1,17 @@
 # DynamoDB EF Core Provider Integration Tests (Repo Conventions)
 
-Integration tests live in `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/` and run against DynamoDB Local (Testcontainers).
+Integration tests live in `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/` and run against
+DynamoDB Local (Testcontainers).
 
 ## Project layout
 
-- Test project: `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/EntityFrameworkCore.DynamoDb.IntegrationTests.csproj`
+- Test project:
+  `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/EntityFrameworkCore.DynamoDb.IntegrationTests.csproj`
 - Suites (examples):
   - `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/`
   - `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/OwnedTypesTable/`
-- Shared helpers:
-  - `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/TestUtilities/DynamoDbPerTestResetTestBase.cs`
+- ## Shared helpers:
+  `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/TestUtilities/DynamoDbPerTestResetTestBase.cs`
   - `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/TestUtilities/DynamoDbSchemaManager.cs`
 
 ## Base classes (how tests get Db, seeding, and AssertSql)
@@ -56,7 +58,8 @@ Notes:
 
 - Expected results:
   - Always derive from the in-memory seed data for that suite (e.g. `OwnedTypesItems.Items`).
-  - Avoid hardcoding `Pk`/`Sk` values or building ad-hoc expected objects unless the test itself inserts the data.
+  - Avoid hardcoding `Pk`/`Sk` values or building ad-hoc expected objects unless the test itself
+    inserts the data.
 - Null semantics:
   - Mirror EF Core null-propagation (`?.`) in your expected LINQ.
   - Guard list indexing (e.g. `x.Tags.Count > 0 && x.Tags[0] == ...`).

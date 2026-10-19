@@ -1,6 +1,8 @@
 ---
 name: dynamodb-efcore-specification-tests
-description: "Use for DynamoDB EF Core specification-test work: adding, extending, classifying, or debugging tests under tests/EntityFrameworkCore.DynamoDb.SpecificationTests, overriding EF Core *TestBase<TFixture> bases, triaging pass/skip/fail outcomes, updating ComplianceDynamoTest, or editing docs/spec-test-coverage.md. Not for normal unit/integration suites."
+description: 'Use for DynamoDB EF Core specification-test work: adding, extending, classifying, or debugging tests under tests/EntityFrameworkCore.DynamoDb.SpecificationTests, overriding EF Core *TestBase<TFixture> bases, triaging pass/skip/fail outcomes, updating ComplianceDynamoTest, or editing docs/spec-test-coverage.md. Not for normal unit/integration suites.'
+metadata:
+  internal: true
 ---
 
 # DynamoDB EF Core Specification Tests
@@ -18,33 +20,38 @@ triage failures with evidence.
 ## Start by loading context
 
 1. Read repo instructions:
-  - `AGENTS.md`
-  - `AGENTS.local.md` if present
-  - `tests/AGENTS.md`
-  - `tests/EntityFrameworkCore.DynamoDb.SpecificationTests/AGENTS.md`
+
+- `AGENTS.md`
+- `AGENTS.local.md` if present
+- `tests/AGENTS.md`
+- `tests/EntityFrameworkCore.DynamoDb.SpecificationTests/AGENTS.md`
+
 2. Read `docs/spec-test-coverage.md` first. Treat it as coverage planning truth, then cross-check
    implemented entries with `ComplianceDynamoTest` and concrete files because inventory docs can
    drift:
-  - candidate status (`Implemented`, `Implement Next`, `Future`, `Skip`)
-  - method counts and notes
-  - threshold rule for newly implemented base classes: implement only when DynamoDB can meaningfully
-    cover about 70% or more of unique methods. Count passing/adapted methods, intentional sync
-    wrappers, and durable DynamoDB architectural skips. Do not count provider-gap deferrals as
-    coverage. If no inherited tests are supportable and every method would be skipped, do not create
-    or keep a `*DynamoTest.cs` class for that base. Update only `docs/spec-test-coverage.md` with
-    `Skip`/`Future` status, method count, and concise rationale. If a class would be mostly skips
-    but
-    still has some meaningful supported coverage, implement only when the docs explicitly choose to
-    document that unsupported surface.
+
+- candidate status (`Implemented`, `Implement Next`, `Future`, `Skip`)
+- method counts and notes
+- threshold rule for newly implemented base classes: implement only when DynamoDB can meaningfully
+  cover about 70% or more of unique methods. Count passing/adapted methods, intentional sync
+  wrappers, and durable DynamoDB architectural skips. Do not count provider-gap deferrals as
+  coverage. If no inherited tests are supportable and every method would be skipped, do not create
+  or keep a `*DynamoTest.cs` class for that base. Update only `docs/spec-test-coverage.md` with
+  `Skip`/`Future` status, method count, and concise rationale. If a class would be mostly skips
+  but
+  still has some meaningful supported coverage, implement only when the docs explicitly choose to
+  document that unsupported surface.
+
 3. Read target upstream EF Core base test from
    `~/Repos/CSharp/efcore/test/EFCore.Specification.Tests/`.
 4. Read closest existing DynamoDB spec class in same family. Prefer newer/compliant examples over
    legacy outliers; do not copy empty skipped overrides, `Task.CompletedTask` skip bodies, or
    missing override guards from older classes.
 5. Use Cosmos and MongoDB providers only as references, not authorities:
-  - Cosmos spec tests: `~/Repos/CSharp/efcore/test/EFCore.Cosmos.FunctionalTests/`
-  - Cosmos provider source: `~/Repos/CSharp/efcore/src/EFCore.Cosmos/`
-  - MongoDB provider/tests: `~/Repos/CSharp/mongo-efcore-provider/`
+
+- Cosmos spec tests: `~/Repos/CSharp/efcore/test/EFCore.Cosmos.FunctionalTests/`
+- Cosmos provider source: `~/Repos/CSharp/efcore/src/EFCore.Cosmos/`
+- MongoDB provider/tests: `~/Repos/CSharp/mongo-efcore-provider/`
 
 ## Implementation workflow
 
@@ -64,40 +71,43 @@ triage failures with evidence.
    `CleanAsync`, `SeedAsync`, expected data, entity sorters/assertors, model customizers, service
    replacement, logging, and test-store lifetime.
 5. Wire shared DynamoDB infrastructure:
-  - all live-DynamoDB fixtures: `DynamoTestStoreFactory.Instance`
-  - all live-DynamoDB fixtures:
-    `.UseDynamo(o => o.DynamoDbClient(DynamoTestStoreFactory.Instance.Client))`
-  - query/baseline fixtures that assert emitted PartiQL: implement `IDynamoSpecificationFixture`,
-    expose `TestSqlLoggerFactory`, override `ShouldLogCategory` via `ShouldLogDynamoSql`, and call
-    `fixture.ClearSql()` from the provider test constructor
-  - non-query/spec utility fixtures may omit `IDynamoSpecificationFixture` when they do not use
-    `AssertSql`
-  - adapt constructor arguments and service hooks to the upstream fixture shape, but keep DynamoDB
-    store factory/client wiring consistent with existing spec tests
-  - override upstream `ClearLog()` to call `Fixture.ClearSql()` when the base class exposes a
-    log-clearing hook
+
+- all live-DynamoDB fixtures: `DynamoTestStoreFactory.Instance`
+- all live-DynamoDB fixtures:
+  `.UseDynamo(o => o.DynamoDbClient(DynamoTestStoreFactory.Instance.Client))`
+- query/baseline fixtures that assert emitted PartiQL: implement `IDynamoSpecificationFixture`,
+  expose `TestSqlLoggerFactory`, override `ShouldLogCategory` via `ShouldLogDynamoSql`, and call
+  `fixture.ClearSql()` from the provider test constructor
+- non-query/spec utility fixtures may omit `IDynamoSpecificationFixture` when they do not use
+  `AssertSql`
+- adapt constructor arguments and service hooks to the upstream fixture shape, but keep DynamoDB
+  store factory/client wiring consistent with existing spec tests
+- override upstream `ClearLog()` to call `Fixture.ClearSql()` when the base class exposes a
+  log-clearing hook
 
 6. Map every entity DynamoDB needs:
-  - table name
-  - partition key via `HasPartitionKey(...)`
-  - sort key only when the EF key shape or test identity requires a two-part DynamoDB key
-  - ignore only fixture-only types not needed for supported cases
-  - any inherited test requiring ignored navigations/keyless/owned/FK-heavy types needs an explicit
-    skip override with a canonical `SkipReason`
+
+- table name
+- partition key via `HasPartitionKey(...)`
+- sort key only when the EF key shape or test identity requires a two-part DynamoDB key
+- ignore only fixture-only types not needed for supported cases
+- any inherited test requiring ignored navigations/keyless/owned/FK-heavy types needs an explicit
+  skip override with a canonical `SkipReason`
 
 7. Add an xUnit-discovered concrete test class using the closest existing pattern:
-  - if provider test class is abstract, add nested `*DynamoTestDefault` (or multiple concrete
-    variants when upstream requires it) and pass provider fixture to base constructor
-  - if provider test class can be concrete, annotate that class with
-    `[Collection(DynamoSpecificationCollection.Name)]` instead of adding a nested default class
-  - if upstream base does not provide fixture injection but expects a fixture object, use
-    `IClassFixture<TFixture>` as existing interception tests do
-  - if upstream exposes `TestStore`/context factory hooks instead, create a `DynamoTestStore`,
-    implement lifetime cleanup, and configure contexts through `TestStore.AddProviderOptions(...)`
-    as existing seeding tests do
-  - inject/assign `DynamoSpecificationContainerFixture` for live-DynamoDB tests when needed to force
-    container startup before `DynamoTestStoreFactory.Instance.Client` is used
-  - spec utility tests that do not touch DynamoDB Local do not need the collection/container
+
+- if provider test class is abstract, add nested `*DynamoTestDefault` (or multiple concrete
+  variants when upstream requires it) and pass provider fixture to base constructor
+- if provider test class can be concrete, annotate that class with
+  `[Collection(DynamoSpecificationCollection.Name)]` instead of adding a nested default class
+- if upstream base does not provide fixture injection but expects a fixture object, use
+  `IClassFixture<TFixture>` as existing interception tests do
+- if upstream exposes `TestStore`/context factory hooks instead, create a `DynamoTestStore`,
+  implement lifetime cleanup, and configure contexts through `TestStore.AddProviderOptions(...)`
+  as existing seeding tests do
+- inject/assign `DynamoSpecificationContainerFixture` for live-DynamoDB tests when needed to force
+  container startup before `DynamoTestStoreFactory.Instance.Client` is used
+- spec utility tests that do not touch DynamoDB Local do not need the collection/container
 
 8. Add override guard:
 
@@ -125,22 +135,22 @@ public sealed class XxxDynamoTestDefault : XxxDynamoTest
 }
 ```
 
-9. Override every inherited test method. No method left undecided. First pass should keep methods
-   unblocked: call `base` for inherited tests and wrap expected sync-query paths with `NoSyncTest`.
-   Avoid support-classification skips before the first red run; failures are the evidence used for
-   classification. Exception: when the upstream method body clearly and statically requires a
-   durable DynamoDB constraint (navigation graph, FK relationship, keyless type, explicit
-   transaction, >2-part key), an early skip is acceptable only with a cited upstream shape and
-   centralized `SkipReason`. Never pre-skip provider gaps.
+09. Override every inherited test method. No method left undecided. First pass should keep methods
+    unblocked: call `base` for inherited tests and wrap expected sync-query paths with `NoSyncTest`.
+    Avoid support-classification skips before the first red run; failures are the evidence used for
+    classification. Exception: when the upstream method body clearly and statically requires a
+    durable DynamoDB constraint (navigation graph, FK relationship, keyless type, explicit
+    transaction, >2-part key), an early skip is acceptable only with a cited upstream shape and
+    centralized `SkipReason`. Never pre-skip provider gaps.
 10. For large inherited surfaces, bootstrap mechanically: create the class/fixture skeleton,
     compile,
-   run only the override guard, copy missing method names/signatures from guard failures, preserve
-   upstream attributes/parameters/return types, and repeat until the guard passes. Redirect test
-   output to a file if the runner truncates guard failures. Use simple base calls or `NoSyncTest`
-   wrappers first; do not hand-classify 100+ methods from memory.
+    run only the override guard, copy missing method names/signatures from guard failures, preserve
+    upstream attributes/parameters/return types, and repeat until the guard passes. Redirect test
+    output to a file if the runner truncates guard failures. Use simple base calls or `NoSyncTest`
+    wrappers first; do not hand-classify 100+ methods from memory.
 11. Run the whole target class or method family with all overrides present. Treat the first red run
     as
-   the classification input, not as failure of the implementation approach.
+    the classification input, not as failure of the implementation approach.
 12. Split failures into small clusters and use scout/research subagents for triage when there is
     more
     than one failure or a failure has unclear support status; see "Subagent failure triage workflow"
