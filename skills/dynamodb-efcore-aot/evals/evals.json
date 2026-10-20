@@ -15,6 +15,11 @@
       "id": 3,
       "prompt": "Verify this branch really supports NativeAOT for EF10 and EF11 before merge.",
       "expected_output": "Runs both generated-interceptor configurations, publishes and launches the EF10 native smoke app, runs both full suites, and reports remaining AOT warnings accurately."
+    },
+    {
+      "id": 4,
+      "prompt": "An application says a simple parameterized PK/SK query is dynamic during precompilation, and a manually retained interceptor later fails source-location binding after a source edit. Should the provider change its query translator?",
+      "expected_output": "Classifies EF source discovery and stale interceptor output as upstream or consumer-workflow concerns, requests a minimal EF Core repro before changing provider code, and explains that manually retained interceptor output must be deleted, regenerated, and compiled after source changes."
     }
   ]
 }

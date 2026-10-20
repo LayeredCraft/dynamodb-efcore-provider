@@ -64,21 +64,51 @@ which EF Core 11 removed) is set; EF Core 11 generates on any publish. To genera
 instead, set `EFScaffoldModelStage` and `EFPrecompileQueriesStage` to `build` (plus
 `EFOptimizeContext=true` on EF Core 10).
 
+### Manual generation
+
+Use publish or configured Tasks generation by default. If a project intentionally retains generated
+interceptor source and invokes `dotnet ef dbcontext optimize --precompile-queries --nativeaot`
+manually, delete prior generated interceptor output before its tooling build. C# interceptors bind to
+source locations, so editing an intercepted query can make old output fail compilation before the
+regeneration command runs. Build the tooling inputs, run the command, then build again to compile the
+new output.
+
+When a referenced context library already owns a checked-in compiled model, generate only query
+interceptors in the query project with `--no-scaffold`; generating another compiled model creates
+duplicate types. Keep the EF CLI/tooling, Tasks, Design package, EF Core runtime, and provider
+versions aligned.
+
 ## Query shape
 
-Write queries as normal LINQ calls in application code:
+Write one statically visible LINQ chain in application code. Runtime scalar values are query
+parameters; passing a key or cancellation token does not itself make a query dynamic.
+
+The local aliases below are an **AOT/precompiled-query portability pattern**. They are not required
+for ordinary JIT EF Core queries: use a direct context reference and method parameters there when
+that is clearer. Use aliases only when the query must be discovered and translated by the EF source
+precompiler:
 
 ```csharp
 internal static async Task<List<Order>> LoadOrdersAsync(
-    OrdersContext db,
-    string customerId,
-    string[] statuses,
+    OrdersContext context,
+    string customerIdArg,
+    string[] statusesArg,
     CancellationToken cancellationToken)
-    => await db.Orders
+{
+    var db = context;
+    var customerId = customerIdArg;
+    var statuses = statusesArg;
+    var queryCancellationToken = cancellationToken;
+
+    return await db.Orders
         .Where(order => order.CustomerId == customerId
             && ((IEnumerable<string>)statuses).Contains(order.Status))
-        .ToListAsync(cancellationToken);
+        .ToListAsync(queryCancellationToken);
+}
 ```
+
+If this shape fails before DynamoDB translation, reduce it to a minimal EF Core repro rather than
+assuming a DynamoDB LINQ or PartiQL limitation.
 
 The generated interceptor contains a compact PartiQL template. Scalar values become positional
 parameters. Local collections are expanded to the required number of positional parameters at
