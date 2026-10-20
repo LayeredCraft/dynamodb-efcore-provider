@@ -179,7 +179,7 @@ public sealed class DynamoTransactionManagerTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<TransactionEntity>(b =>
             {
-                b.ToTable("Transactions");
+                b.ToDynamoTable("Transactions");
                 b.HasPartitionKey(e => e.Id);
             });
     }

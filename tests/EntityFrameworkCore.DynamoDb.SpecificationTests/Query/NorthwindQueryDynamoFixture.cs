@@ -61,10 +61,10 @@ public class NorthwindQueryDynamoFixture<TModelCustomizer>
         modelBuilder.Ignore<ProductQuery>();
         modelBuilder.Ignore<ProductView>();
 
-        modelBuilder.Entity<Customer>().ToTable("Customers").HasPartitionKey(e => e.CustomerID);
-        modelBuilder.Entity<Employee>().ToTable("Employees").HasPartitionKey(e => e.EmployeeID);
-        modelBuilder.Entity<Order>().ToTable("Orders").HasPartitionKey(e => e.OrderID);
-        modelBuilder.Entity<Product>().ToTable("Products").HasPartitionKey(e => e.ProductID);
+        modelBuilder.Entity<Customer>().ToDynamoTable("Customers").HasPartitionKey(e => e.CustomerID);
+        modelBuilder.Entity<Employee>().ToDynamoTable("Employees").HasPartitionKey(e => e.EmployeeID);
+        modelBuilder.Entity<Order>().ToDynamoTable("Orders").HasPartitionKey(e => e.OrderID);
+        modelBuilder.Entity<Product>().ToDynamoTable("Products").HasPartitionKey(e => e.ProductID);
     }
 
     protected override Task SeedAsync(NorthwindContext context)

@@ -300,7 +300,7 @@ public class DynamoDbQueryableExtensionsTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<LimitEntity>(b =>
             {
-                b.ToTable("LimitTable");
+                b.ToDynamoTable("LimitTable");
                 b.HasPartitionKey(x => x.Pk);
             });
 

@@ -39,7 +39,7 @@ Switch to a different convention for an entity type using `HasAttributeNamingCon
 ```csharp
 modelBuilder.Entity<Order>(b =>
 {
-    b.ToTable("Orders");
+    b.ToDynamoTable("Orders");
     b.HasPartitionKey(x => x.CustomerId);
     b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
 });
@@ -89,7 +89,7 @@ finalization.
 ```csharp
 modelBuilder.Entity<Order>(b =>
 {
-    b.ToTable("Orders");
+    b.ToDynamoTable("Orders");
     b.HasPartitionKey(x => x.CustomerId);
     b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
 
@@ -111,7 +111,7 @@ itself:
 ```csharp
 modelBuilder.Entity<Order>(b =>
 {
-    b.ToTable("Orders");
+    b.ToDynamoTable("Orders");
     b.HasPartitionKey(x => x.CustomerId);
     b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
 

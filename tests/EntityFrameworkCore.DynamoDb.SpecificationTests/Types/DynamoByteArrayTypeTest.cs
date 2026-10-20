@@ -68,7 +68,7 @@ public sealed class DynamoByteArrayTypeTest(
 
             modelBuilder
                 .Entity<TypeEntity<byte[]>>()
-                .ToTable("ByteArrayTypes")
+                .ToDynamoTable("ByteArrayTypes")
                 .HasPartitionKey(e => e.Id);
         }
     }

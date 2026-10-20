@@ -296,7 +296,7 @@ public class ExecuteUpdateExecutionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExecuteUpdateEntity>(builder =>
             {
-                builder.ToTable("ExecuteUpdateTestsTable");
+                builder.ToDynamoTable("ExecuteUpdateTestsTable");
                 builder.HasPartitionKey(x => x.Pk);
                 builder.HasSortKey(x => x.Sk);
                 builder.ComplexProperty(x => x.Profile);

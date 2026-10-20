@@ -639,7 +639,7 @@ public sealed class QueryTypeMappingDbContext(DbContextOptions options) : DbCont
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<QueryTypeMappingItem>(builder =>
         {
-            builder.ToTable("QueryTypeMappingItems");
+            builder.ToDynamoTable("QueryTypeMappingItems");
             builder.HasPartitionKey(item => item.Pk);
             builder.Property(item => item.Pk).HasAttributeName("pk");
             builder.Property(item => item.ShortValue).HasAttributeName("shortValue");

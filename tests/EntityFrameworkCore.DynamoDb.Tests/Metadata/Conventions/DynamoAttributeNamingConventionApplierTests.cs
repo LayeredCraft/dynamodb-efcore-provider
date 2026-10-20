@@ -48,7 +48,7 @@ public class DynamoAttributeNamingConventionApplierTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SampleEntity>(b =>
             {
-                b.ToTable("Samples");
+                b.ToDynamoTable("Samples");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
             });
@@ -87,7 +87,7 @@ public class DynamoAttributeNamingConventionApplierTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SampleEntity>(b =>
             {
-                b.ToTable("Samples");
+                b.ToDynamoTable("Samples");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.CamelCase);
             });
@@ -126,7 +126,7 @@ public class DynamoAttributeNamingConventionApplierTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SampleEntity>(b =>
             {
-                b.ToTable("Samples");
+                b.ToDynamoTable("Samples");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.KebabCase);
             });
@@ -164,7 +164,7 @@ public class DynamoAttributeNamingConventionApplierTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SampleEntity>(b =>
             {
-                b.ToTable("Samples");
+                b.ToDynamoTable("Samples");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.UpperSnakeCase);
             });
@@ -202,7 +202,7 @@ public class DynamoAttributeNamingConventionApplierTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SampleEntity>(b =>
             {
-                b.ToTable("Samples");
+                b.ToDynamoTable("Samples");
                 b.HasPartitionKey(x => x.Pk);
                 // Prefix every attribute name with "x_"
                 b.HasAttributeNamingConvention(name => "x_" + name.ToLowerInvariant());
@@ -244,7 +244,7 @@ public class DynamoAttributeNamingConventionApplierTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<EntityWithOverride>(b =>
             {
-                b.ToTable("Overrides");
+                b.ToDynamoTable("Overrides");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
                 // Explicit override — must survive convention
@@ -283,7 +283,7 @@ public class DynamoAttributeNamingConventionApplierTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SampleEntity>(b =>
             {
-                b.ToTable("Samples");
+                b.ToDynamoTable("Samples");
                 b.HasPartitionKey(x => x.Pk);
                 // No HasAttributeNamingConvention call
             });
@@ -322,7 +322,7 @@ public class DynamoAttributeNamingConventionApplierTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SampleEntity>(b =>
             {
-                b.ToTable("Samples");
+                b.ToDynamoTable("Samples");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.None);
             });
@@ -373,7 +373,7 @@ public class DynamoAttributeNamingConventionApplierTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PersonEntity>(b =>
             {
-                b.ToTable("People");
+                b.ToDynamoTable("People");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
                 b.ComplexProperty(x => x.HomeAddress);
@@ -417,7 +417,7 @@ public class DynamoAttributeNamingConventionApplierTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PersonEntity>(b =>
             {
-                b.ToTable("People");
+                b.ToDynamoTable("People");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
                 b.ComplexProperty(x => x.HomeAddress).HasAttributeName("home_payload");
@@ -459,7 +459,7 @@ public class DynamoAttributeNamingConventionApplierTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<CollectionOwner>(b =>
             {
-                b.ToTable("Owners");
+                b.ToDynamoTable("Owners");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
                 b.ComplexCollection(x => x.Items);
@@ -496,7 +496,7 @@ public class DynamoAttributeNamingConventionApplierTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<UserShadowEntity>(b =>
             {
-                b.ToTable("UserShadow");
+                b.ToDynamoTable("UserShadow");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
                 b.Property<string>("ShadowValue");
@@ -522,7 +522,7 @@ public class DynamoAttributeNamingConventionApplierTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<UserShadowEntity>(b =>
             {
-                b.ToTable("UserShadow");
+                b.ToDynamoTable("UserShadow");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
                 b.Property<string>("ShadowValue").HasAttributeName("shadow");
@@ -555,7 +555,7 @@ public class DynamoAttributeNamingConventionApplierTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<AcronymEntity>(b =>
             {
-                b.ToTable("Acronyms");
+                b.ToDynamoTable("Acronyms");
                 b.HasPartitionKey(x => x.PK);
                 b.HasSortKey(x => x.SK);
                 b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
@@ -593,7 +593,7 @@ public class DynamoAttributeNamingConventionApplierTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ReadOnlyKeyEntity>(b =>
             {
-                b.ToTable("ReadOnlyKeyEntity");
+                b.ToDynamoTable("ReadOnlyKeyEntity");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
                 b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);

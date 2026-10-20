@@ -59,8 +59,8 @@ public sealed class QueryExpressionInterceptionDynamoTest
         {
             base.OnModelCreating(modelBuilder, context);
 
-            modelBuilder.Entity<Singularity>().ToTable("Singularities").HasPartitionKey(e => e.Id);
-            modelBuilder.Entity<Brane>().ToTable("Branes").HasPartitionKey(e => e.Id);
+            modelBuilder.Entity<Singularity>().ToDynamoTable("Singularities").HasPartitionKey(e => e.Id);
+            modelBuilder.Entity<Brane>().ToDynamoTable("Branes").HasPartitionKey(e => e.Id);
         }
 
         protected override string StoreName => "QueryExpressionInterception";

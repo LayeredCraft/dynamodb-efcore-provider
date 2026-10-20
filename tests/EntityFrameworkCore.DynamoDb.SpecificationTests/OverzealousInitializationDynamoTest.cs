@@ -38,9 +38,9 @@ public sealed class OverzealousInitializationDynamoTest
         {
             base.OnModelCreating(modelBuilder, context);
 
-            modelBuilder.Entity<Album>().ToTable("Albums").HasPartitionKey(e => e.Id);
-            modelBuilder.Entity<Artist>().ToTable("Artists").HasPartitionKey(e => e.Id);
-            modelBuilder.Entity<Track>().ToTable("Tracks").HasPartitionKey(e => e.Id);
+            modelBuilder.Entity<Album>().ToDynamoTable("Albums").HasPartitionKey(e => e.Id);
+            modelBuilder.Entity<Artist>().ToDynamoTable("Artists").HasPartitionKey(e => e.Id);
+            modelBuilder.Entity<Track>().ToDynamoTable("Tracks").HasPartitionKey(e => e.Id);
         }
     }
 }

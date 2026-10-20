@@ -5,6 +5,8 @@ An EF entity is stored as one DynamoDB item; it is not a relational row with joi
 
 ## Keys and tables
 
+- Map each entity to its table with `ToDynamoTable("TableName")`; when omitted, the provider uses
+  the CLR type name.
 - Every mapped entity needs a DynamoDB partition key. Add a sort key when the table's access
   pattern needs ordered or ranged items within a partition.
 - Entity keys and DynamoDB table keys must be compatible. Do not assume a composite EF key maps to

@@ -43,7 +43,7 @@ public class TableKeySchemaTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SingleKeyEntity>(b =>
             {
-                b.ToTable("SingleKeyTable");
+                b.ToDynamoTable("SingleKeyTable");
                 b.HasPartitionKey(x => x.Id);
             });
 
@@ -109,7 +109,7 @@ public class TableKeySchemaTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SingleKeyWithAttributeEntity>(b =>
             {
-                b.ToTable("SingleKeyAttributeTable");
+                b.ToDynamoTable("SingleKeyAttributeTable");
                 b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.Id).HasAttributeName("PK");
             });
@@ -161,7 +161,7 @@ public class TableKeySchemaTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<TwoPartKeyEntity>(b =>
             {
-                b.ToTable("TwoPartKeyTable");
+                b.ToDynamoTable("TwoPartKeyTable");
                 b.HasPartitionKey(x => x.PartitionId);
                 b.HasSortKey(x => x.SortId);
                 b.HasPartitionKey(x => x.PartitionId);
@@ -234,7 +234,7 @@ public class TableKeySchemaTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<MultiPropEntity>(b =>
             {
-                b.ToTable("HasPartitionKeyTable");
+                b.ToDynamoTable("HasPartitionKeyTable");
                 b.HasPartitionKey(x => x.OtherId);
             });
 
@@ -260,7 +260,7 @@ public class TableKeySchemaTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<MultiPropEntity>(b =>
             {
-                b.ToTable("HasSortKeyTable");
+                b.ToDynamoTable("HasSortKeyTable");
                 b.HasPartitionKey(x => x.OtherId);
                 b.HasSortKey(x => x.Id);
             });
@@ -297,7 +297,7 @@ public class TableKeySchemaTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<AttributeNameEntity>(b =>
             {
-                b.ToTable("AttributeNameTable");
+                b.ToDynamoTable("AttributeNameTable");
                 b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.Id).HasAttributeName("HASH");
             });
@@ -340,7 +340,7 @@ public class TableKeySchemaTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerEntity>(b =>
             {
-                b.ToTable("OwnedTable");
+                b.ToDynamoTable("OwnedTable");
                 b.HasPartitionKey(x => x.Id);
                 b.ComplexProperty(x => x.Detail);
             });
@@ -379,7 +379,7 @@ public class TableKeySchemaTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<TwoPartKeyWithSkAttributeEntity>(b =>
             {
-                b.ToTable("TwoPartKeySkAttributeTable");
+                b.ToDynamoTable("TwoPartKeySkAttributeTable");
                 b.HasPartitionKey(x => x.PartitionId);
                 b.HasSortKey(x => x.SortId);
                 b.HasPartitionKey(x => x.PartitionId);
@@ -421,7 +421,7 @@ public class TableKeySchemaTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<StringOverridePkEntity>(b =>
             {
-                b.ToTable("PkStringNoAttrTable");
+                b.ToDynamoTable("PkStringNoAttrTable");
                 b.HasPartitionKey("OtherId");
             });
 
@@ -448,7 +448,7 @@ public class TableKeySchemaTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<StringOverridePkEntity>(b =>
             {
-                b.ToTable("PkStringWithAttrTable");
+                b.ToDynamoTable("PkStringWithAttrTable");
                 b.HasPartitionKey("Id");
                 b.Property(x => x.Id).HasAttributeName("HASH");
             });
@@ -487,7 +487,7 @@ public class TableKeySchemaTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SortKeyLambdaAttributeEntity>(b =>
             {
-                b.ToTable("SkLambdaWithAttrTable");
+                b.ToDynamoTable("SkLambdaWithAttrTable");
                 b.HasPartitionKey(x => x.Id);
                 b.HasSortKey(x => x.OtherId);
                 b.Property(x => x.OtherId).HasAttributeName("RANGE");
@@ -527,7 +527,7 @@ public class TableKeySchemaTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<StringOverrideSkEntity>(b =>
             {
-                b.ToTable("SkStringNoAttrTable");
+                b.ToDynamoTable("SkStringNoAttrTable");
                 b.HasPartitionKey("OtherId");
                 b.HasSortKey("Id");
             });
@@ -555,7 +555,7 @@ public class TableKeySchemaTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<StringOverrideSkEntity>(b =>
             {
-                b.ToTable("SkStringWithAttrTable");
+                b.ToDynamoTable("SkStringWithAttrTable");
                 b.HasPartitionKey("Id");
                 b.HasSortKey("OtherId");
                 b.Property(x => x.OtherId).HasAttributeName("RANGE");
@@ -603,7 +603,7 @@ public class TableKeySchemaTests
         {
             modelBuilder.Entity<ConfigSourceEntity>(b =>
             {
-                b.ToTable("FluentApiPkTable");
+                b.ToDynamoTable("FluentApiPkTable");
                 b.HasPartitionKey(x => x.Id);
             });
 
@@ -637,7 +637,7 @@ public class TableKeySchemaTests
         {
             modelBuilder.Entity<ConfigSourceEntity>(b =>
             {
-                b.ToTable("FluentApiSkTable");
+                b.ToDynamoTable("FluentApiSkTable");
                 b.HasPartitionKey(x => x.Id);
                 b.HasSortKey(x => x.OtherId);
             });
@@ -681,7 +681,7 @@ public class TableKeySchemaTests
         {
             modelBuilder.Entity<ConventionConfigSourceEntity>(b =>
             {
-                b.ToTable("ConventionKeyTable");
+                b.ToDynamoTable("ConventionKeyTable");
                 // no HasPartitionKey / HasSortKey calls; convention should set both.
             });
 

@@ -195,7 +195,7 @@ public class ConsistentReadQueryTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ConsistentReadEntity>(b =>
             {
-                b.ToTable("ConsistentReadTable");
+                b.ToDynamoTable("ConsistentReadTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasGlobalSecondaryIndex("ByCustomer", x => x.CustomerId);
             });

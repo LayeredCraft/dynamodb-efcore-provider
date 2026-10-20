@@ -259,14 +259,14 @@ public class IndexQueryExtensionsTests
         {
             modelBuilder.Entity<SharedOrder>(b =>
             {
-                b.ToTable("SharedDocs");
+                b.ToDynamoTable("SharedDocs");
                 b.HasPartitionKey(x => x.Id);
                 b.HasGlobalSecondaryIndex("ByStatus", x => x.Status);
             });
 
             modelBuilder.Entity<SharedInvoice>(b =>
             {
-                b.ToTable("SharedDocs");
+                b.ToDynamoTable("SharedDocs");
                 b.HasPartitionKey(x => x.Id);
                 // No secondary indexes on Invoice
             });
@@ -308,7 +308,7 @@ public class IndexQueryExtensionsTests
         {
             modelBuilder.Entity<BaseOrderForIndexQuery>(b =>
             {
-                b.ToTable("Orders");
+                b.ToDynamoTable("Orders");
                 b.HasPartitionKey(x => x.Id);
                 b.HasSortKey(x => x.OrderId);
                 b.HasLocalSecondaryIndex("ByStatus", x => x.Status);

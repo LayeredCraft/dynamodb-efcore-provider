@@ -33,7 +33,7 @@ public class CustomerProfile
 
 modelBuilder.Entity<Customer>(builder =>
 {
-    builder.ToTable("Customers");
+    builder.ToDynamoTable("Customers");
     builder.HasPartitionKey(x => x.Pk);
     builder.ComplexProperty(x => x.Profile);
 });

@@ -84,7 +84,7 @@ public class SaveChangesModelValidationTests(DynamoContainerFixture fixture)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<UnmappedScalarItem>(builder =>
             {
-                builder.ToTable(SaveChangesItemTable.TableName);
+                builder.ToDynamoTable(SaveChangesItemTable.TableName);
                 builder.HasPartitionKey(x => x.Pk);
                 builder.HasSortKey(x => x.Sk);
                 builder.Property(x => x.Metadata);
@@ -98,7 +98,7 @@ public class SaveChangesModelValidationTests(DynamoContainerFixture fixture)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RowVersionItem>(builder =>
             {
-                builder.ToTable(SaveChangesItemTable.TableName);
+                builder.ToDynamoTable(SaveChangesItemTable.TableName);
                 builder.HasPartitionKey(x => x.Pk);
                 builder.HasSortKey(x => x.Sk);
                 builder.Property(x => x.Token).IsConcurrencyToken().ValueGeneratedOnAddOrUpdate();

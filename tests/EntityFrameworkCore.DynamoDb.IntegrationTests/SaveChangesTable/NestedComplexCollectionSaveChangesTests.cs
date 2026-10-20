@@ -150,7 +150,7 @@ public class NestedComplexCollectionSaveChangesTests : DynamoTestFixtureBase
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<NestedComplexCollectionItem>(builder =>
             {
-                builder.ToTable(TableName);
+                builder.ToDynamoTable(TableName);
                 builder.HasPartitionKey(x => x.Pk);
                 builder.ComplexProperty(
                     x => x.Profile,

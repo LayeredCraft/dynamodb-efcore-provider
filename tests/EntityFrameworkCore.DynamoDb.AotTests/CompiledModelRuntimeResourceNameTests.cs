@@ -412,7 +412,7 @@ public sealed class RuntimeNameContext : DbContext
     {
         modelBuilder.Entity<RuntimeNameItem>(entity =>
         {
-            DynamoEntityTypeBuilderExtensions.ToTable(entity, "placeholder-table").HasLogicalTableName("Items");
+            DynamoEntityTypeBuilderExtensions.ToDynamoTable(entity, "placeholder-table").HasLogicalTableName("Items");
             entity.HasPartitionKey(item => item.Pk);
             entity
                 .HasGlobalSecondaryIndex("ByCategory", nameof(RuntimeNameItem.Category))
@@ -421,7 +421,7 @@ public sealed class RuntimeNameContext : DbContext
 
         modelBuilder.Entity<RuntimeNameOther>(entity =>
         {
-            DynamoEntityTypeBuilderExtensions.ToTable(entity, "other-placeholder-table").HasLogicalTableName("Others");
+            DynamoEntityTypeBuilderExtensions.ToDynamoTable(entity, "other-placeholder-table").HasLogicalTableName("Others");
             entity.HasPartitionKey(item => item.Pk);
             entity
                 .HasGlobalSecondaryIndex("ByKind", nameof(RuntimeNameOther.Kind))

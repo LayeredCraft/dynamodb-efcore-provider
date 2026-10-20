@@ -959,7 +959,7 @@ public class QueryTypeMappingInferenceTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<QueryTypeMappingEntity>(builder =>
             {
-                builder.ToTable("QueryTypeMappingItems");
+                builder.ToDynamoTable("QueryTypeMappingItems");
                 builder.HasPartitionKey(e => e.Id);
                 builder.Property(e => e.Id).HasAttributeName("id");
                 builder.Property(e => e.ShortValue).HasAttributeName("shortValue");

@@ -12,12 +12,12 @@ public class PrimitiveCollectionsDbContext(DbContextOptions<PrimitiveCollections
     {
         modelBuilder
             .Entity<PrimitiveCollectionsItem>()
-            .ToTable(PrimitiveCollectionsItemTable.TableName)
+            .ToDynamoTable(PrimitiveCollectionsItemTable.TableName)
             .HasPartitionKey(x => x.Pk);
 
         modelBuilder
             .Entity<MutablePrimitiveCollectionsItem>()
-            .ToTable(MutablePrimitiveCollectionsItemTable.TableName)
+            .ToDynamoTable(MutablePrimitiveCollectionsItemTable.TableName)
             .HasPartitionKey(x => x.Pk);
     }
 }

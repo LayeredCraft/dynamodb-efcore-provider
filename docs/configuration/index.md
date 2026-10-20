@@ -41,7 +41,7 @@ behavior.
 
 An advanced facility for EF compiled models and NativeAOT applications that are promoted unchanged
 between environments with different physical table or index names. Most applications do not need it;
-configure names with `ToTable(...)` and `HasSecondaryIndexName(...)` instead.
+configure names with `ToDynamoTable(...)` and `HasSecondaryIndexName(...)` instead.
 
 ### [Attribute Naming](attribute-naming.md)
 

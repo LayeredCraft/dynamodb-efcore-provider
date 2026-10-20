@@ -66,7 +66,7 @@ public sealed class DynamoStringTypeTest(
 
             modelBuilder
                 .Entity<TypeEntity<string>>()
-                .ToTable("StringTypes")
+                .ToDynamoTable("StringTypes")
                 .HasPartitionKey(e => e.Id);
         }
     }

@@ -44,7 +44,7 @@ public class DynamoComplexPropertyDiscoveryConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<Customer>(b =>
             {
-                b.ToTable("customers");
+                b.ToDynamoTable("customers");
                 b.HasPartitionKey(x => x.Pk);
             });
     }
@@ -121,13 +121,13 @@ public class DynamoComplexPropertyDiscoveryConventionTests
         {
             modelBuilder.Entity<Employee>(b =>
             {
-                b.ToTable("employees");
+                b.ToDynamoTable("employees");
                 b.HasPartitionKey(x => x.Pk);
             });
 
             modelBuilder.Entity<Address>(b =>
             {
-                b.ToTable("addresses");
+                b.ToDynamoTable("addresses");
                 b.HasPartitionKey(x => x.Street);
             });
         }
@@ -161,13 +161,13 @@ public class DynamoComplexPropertyDiscoveryConventionTests
         {
             modelBuilder.Entity<Team>(b =>
             {
-                b.ToTable("teams");
+                b.ToDynamoTable("teams");
                 b.HasPartitionKey(x => x.Pk);
             });
 
             modelBuilder.Entity<Address>(b =>
             {
-                b.ToTable("addresses");
+                b.ToDynamoTable("addresses");
                 b.HasPartitionKey(x => x.Street);
             });
         }
@@ -181,7 +181,7 @@ public class DynamoComplexPropertyDiscoveryConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<UnsupportedCollectionCustomer>(b =>
             {
-                b.ToTable("unsupported-collection-customers");
+                b.ToDynamoTable("unsupported-collection-customers");
                 b.HasPartitionKey(x => x.Pk);
                 b.ComplexCollection(x => x.Addresses);
             });
@@ -196,7 +196,7 @@ public class DynamoComplexPropertyDiscoveryConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<UnsupportedReadOnlyListCustomer>(b =>
             {
-                b.ToTable("unsupported-readonly-list-customers");
+                b.ToDynamoTable("unsupported-readonly-list-customers");
                 b.HasPartitionKey(x => x.Pk);
                 b.ComplexCollection(x => x.Addresses);
             });

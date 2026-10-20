@@ -64,7 +64,7 @@ public sealed class DynamoGuidTypeTest(
         {
             base.OnModelCreating(modelBuilder, context);
 
-            modelBuilder.Entity<TypeEntity<Guid>>().ToTable("GuidTypes").HasPartitionKey(e => e.Id);
+            modelBuilder.Entity<TypeEntity<Guid>>().ToDynamoTable("GuidTypes").HasPartitionKey(e => e.Id);
         }
     }
 }

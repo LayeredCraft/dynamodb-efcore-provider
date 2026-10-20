@@ -260,28 +260,28 @@ public class DynamoFindTests
         {
             modelBuilder.Entity<PkItem>(builder =>
             {
-                builder.ToTable("FindPkItems");
+                builder.ToDynamoTable("FindPkItems");
                 builder.HasPartitionKey(x => x.Pk);
                 builder.HasGlobalSecondaryIndex("ByPkName", x => x.Pk, x => x.Name);
             });
 
             modelBuilder.Entity<CompositeItem>(builder =>
             {
-                builder.ToTable("FindCompositeItems");
+                builder.ToDynamoTable("FindCompositeItems");
                 builder.HasPartitionKey(x => x.Pk);
                 builder.HasSortKey(x => x.Sk);
             });
 
             modelBuilder.Entity<HasKeyPkItem>(builder =>
             {
-                builder.ToTable("FindHasKeyPkItems");
+                builder.ToDynamoTable("FindHasKeyPkItems");
                 builder.HasKey(x => x.Pk);
                 builder.Property(x => x.Pk).HasAttributeName("pk_attr");
             });
 
             modelBuilder.Entity<HasKeyCompositeItem>(builder =>
             {
-                builder.ToTable("FindHasKeyCompositeItems");
+                builder.ToDynamoTable("FindHasKeyCompositeItems");
                 builder.HasKey(x => new { x.Pk, x.Sk });
                 builder.Property(x => x.Pk).HasAttributeName("pk_attr");
                 builder.Property(x => x.Sk).HasAttributeName("sk_attr");

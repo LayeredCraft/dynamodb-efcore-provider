@@ -74,8 +74,8 @@ public sealed class LifecycleContext : DbContext
     {
         modelBuilder.Entity<LifeAnimal>(entity =>
         {
-            DynamoEntityTypeBuilderExtensions
-                .ToTable(entity, "life-design-table")
+            entity
+                .ToDynamoTable("life-design-table")
                 .HasLogicalTableName("Life");
             entity.HasPartitionKey(item => item.Pk);
             entity

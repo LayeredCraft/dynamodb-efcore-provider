@@ -232,7 +232,7 @@ public class PrimitiveCollectionContainsTranslationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PrimitiveCollectionContainsEntity>(builder =>
             {
-                builder.ToTable("PrimitiveCollectionContainsItems");
+                builder.ToDynamoTable("PrimitiveCollectionContainsItems");
                 builder.HasPartitionKey(e => e.Id);
                 builder.Property(e => e.Id).HasAttributeName("id");
                 builder.Property(e => e.Tags).HasAttributeName("tags");

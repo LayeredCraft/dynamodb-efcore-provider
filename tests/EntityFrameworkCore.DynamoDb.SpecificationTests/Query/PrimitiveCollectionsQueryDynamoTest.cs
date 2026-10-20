@@ -1230,7 +1230,7 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
 
             modelBuilder.Entity<PrimitiveCollectionsEntity>(entity =>
             {
-                entity.ToTable("PrimitiveCollections").HasPartitionKey(e => e.Id);
+                entity.ToDynamoTable("PrimitiveCollections").HasPartitionKey(e => e.Id);
                 entity.Property(e => e.Id).ValueGeneratedNever();
             });
         }

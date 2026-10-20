@@ -382,7 +382,7 @@ public class DynamoBoxedSerializationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<BoxedEntity>(builder =>
             {
-                builder.ToTable("BoxedItems");
+                builder.ToDynamoTable("BoxedItems");
                 builder.HasPartitionKey(x => x.Pk);
                 builder.Property(x => x.ConvertedGuid).HasConversion<string>();
                 builder.Property(x => x.Status).HasConversion<string>();

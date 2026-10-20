@@ -125,7 +125,7 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     ///         <c>OnModelCreating</c>, and DynamoDB statements reference the physical names directly, so
     ///         the physical names must be supplied at runtime. If you use ordinary EF model building, or
     ///         your physical names are the same in every environment, configure them in the model with
-    ///         <c>ToTable(...)</c> and <c>HasSecondaryIndexName(...)</c> instead.
+    ///         <c>ToDynamoTable(...)</c> and <c>HasSecondaryIndexName(...)</c> instead.
     ///     </para>
     ///     <para>
     ///         The mappings are applied once when the model is initialized, before any query or write

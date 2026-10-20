@@ -560,7 +560,7 @@ public class PrecompiledQueryTemplateTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ConvertedEntity>(entity =>
             {
-                entity.ToTable("RuntimeItems");
+                entity.ToDynamoTable("RuntimeItems");
                 entity.HasPartitionKey(item => item.Pk);
                 entity.HasGlobalSecondaryIndex(
                     indexName,
@@ -597,7 +597,7 @@ public class PrecompiledQueryTemplateTests
         {
             modelBuilder.Entity<BaseEntity>(entity =>
             {
-                entity.ToTable("RuntimeItems");
+                entity.ToDynamoTable("RuntimeItems");
                 entity.HasPartitionKey(item => item.Pk);
                 if (indexName is not null)
                     entity.HasGlobalSecondaryIndex(indexName, item => item.Pk);

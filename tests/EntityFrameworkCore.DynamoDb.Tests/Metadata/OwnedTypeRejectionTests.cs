@@ -73,7 +73,7 @@ public class OwnedTypeRejectionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RootEntity>(b =>
             {
-                b.ToTable("roots");
+                b.ToDynamoTable("roots");
                 b.HasPartitionKey(x => x.Pk);
                 b.Ignore(x => x.Tags);
                 b.OwnsOne(x => x.Home);
@@ -87,7 +87,7 @@ public class OwnedTypeRejectionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RootEntity>(b =>
             {
-                b.ToTable("roots");
+                b.ToDynamoTable("roots");
                 b.HasPartitionKey(x => x.Pk);
                 b.Ignore(x => x.Home);
                 b.OwnsMany(x => x.Tags);

@@ -57,7 +57,7 @@ public class ComplexTypesModelValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerWithOwnedProfile>(entity =>
             {
-                entity.ToTable(ComplexTypesItemTable.TableName);
+                entity.ToDynamoTable(ComplexTypesItemTable.TableName);
                 entity.HasPartitionKey(x => x.Pk);
                 entity.OwnsOne(x => x.Profile);
             });
@@ -72,7 +72,7 @@ public class ComplexTypesModelValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerWithUnsupportedCollectionShape>(entity =>
             {
-                entity.ToTable(ComplexTypesItemTable.TableName);
+                entity.ToDynamoTable(ComplexTypesItemTable.TableName);
                 entity.HasPartitionKey(x => x.Pk);
                 entity.ComplexCollection(x => x.Profiles);
             });

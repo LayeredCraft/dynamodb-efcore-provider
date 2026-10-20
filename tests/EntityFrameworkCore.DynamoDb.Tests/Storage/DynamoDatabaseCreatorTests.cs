@@ -102,7 +102,7 @@ public sealed class DynamoDatabaseCreatorTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<DatabaseCreatorEntity>(b =>
             {
-                b.ToTable("DatabaseCreator");
+                b.ToDynamoTable("DatabaseCreator");
                 b.HasPartitionKey(e => e.Id);
             });
     }

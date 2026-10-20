@@ -92,7 +92,7 @@ public class DynamoModelValidatorTypeMappingTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitUnmappedScalarEntity>(builder =>
             {
-                builder.ToTable("Items");
+                builder.ToDynamoTable("Items");
                 builder.HasPartitionKey(x => x.Pk);
                 // Explicitly include the property so EF adds it to the model even though
                 // the DynamoDB source cannot produce a type mapping for CustomPayload.
@@ -132,7 +132,7 @@ public class DynamoModelValidatorTypeMappingTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitUnmappedCollectionEntity>(builder =>
             {
-                builder.ToTable("Items");
+                builder.ToDynamoTable("Items");
                 builder.HasPartitionKey(x => x.Pk);
                 // Explicitly configure as primitive collection so EF includes it in the model.
                 builder.PrimitiveCollection(x => x.Tags);
@@ -164,7 +164,7 @@ public class DynamoModelValidatorTypeMappingTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ConvertedGuidEntity>(builder =>
             {
-                builder.ToTable("Items");
+                builder.ToDynamoTable("Items");
                 builder.HasPartitionKey(x => x.Pk);
                 builder.Property(x => x.Identifier).HasConversion<string>();
             });
@@ -194,7 +194,7 @@ public class DynamoModelValidatorTypeMappingTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RowVersionConcurrencyEntity>(builder =>
             {
-                builder.ToTable("Items");
+                builder.ToDynamoTable("Items");
                 builder.HasPartitionKey(x => x.Pk);
                 builder.Property(x => x.Token).IsConcurrencyToken().ValueGeneratedOnAddOrUpdate();
             });
@@ -222,7 +222,7 @@ public class DynamoModelValidatorTypeMappingTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ManualConcurrencyTokenEntity>(builder =>
             {
-                builder.ToTable("Items");
+                builder.ToDynamoTable("Items");
                 builder.HasPartitionKey(x => x.Pk);
                 builder.Property(x => x.Token).IsConcurrencyToken().ValueGeneratedNever();
             });

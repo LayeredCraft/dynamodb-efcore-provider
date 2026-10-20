@@ -635,14 +635,14 @@ public class ComplexTypeProjectionTests
         {
             modelBuilder.Entity<EntityA>(b =>
             {
-                b.ToTable("EntityATable");
+                b.ToDynamoTable("EntityATable");
                 b.HasPartitionKey(x => x.Pk);
                 b.ComplexProperty(x => x.Profile);
             });
 
             modelBuilder.Entity<EntityB>(b =>
             {
-                b.ToTable("EntityBTable");
+                b.ToDynamoTable("EntityBTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.ComplexProperty(x => x.Profile);
             });
@@ -671,7 +671,7 @@ public class ComplexTypeProjectionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RequiredEntity>(b =>
             {
-                b.ToTable("RequiredEntityTable");
+                b.ToDynamoTable("RequiredEntityTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.ComplexProperty(x => x.Profile);
             });
@@ -699,7 +699,7 @@ public class ComplexTypeProjectionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<NullableComplexCollectionEntity>(b =>
             {
-                b.ToTable("NullableComplexCollectionTable");
+                b.ToDynamoTable("NullableComplexCollectionTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.ComplexCollection(x => x.Addresses);
             });
@@ -726,7 +726,7 @@ public class ComplexTypeProjectionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<NestedProfileEntity>(b =>
             {
-                b.ToTable("NestedProfileTable");
+                b.ToDynamoTable("NestedProfileTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.ComplexProperty(x => x.Profile, pb => pb.ComplexProperty(p => p.Address));
             });

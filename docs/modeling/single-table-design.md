@@ -67,14 +67,14 @@ drift.
 ```csharp
 modelBuilder.Entity<User>(b =>
 {
-    b.ToTable("app-table");
+    b.ToDynamoTable("app-table");
     b.HasPartitionKey(x => x.Pk);
     b.HasSortKey(x => x.Sk);
 });
 
 modelBuilder.Entity<Order>(b =>
 {
-    b.ToTable("app-table");
+    b.ToDynamoTable("app-table");
     b.HasPartitionKey(x => x.Pk);
     b.HasSortKey(x => x.Sk);
 });
@@ -87,7 +87,7 @@ TPH (table-per-hierarchy) is the only supported inheritance strategy.
 ```csharp
 modelBuilder.Entity<Person>(b =>
 {
-    b.ToTable("People");
+    b.ToDynamoTable("People");
     b.HasPartitionKey(x => x.Pk);
     b.HasSortKey(x => x.Sk);
 });
@@ -109,7 +109,7 @@ Use this sequence when introducing a new entity type into a shared table:
 
 1. Define the item family and sort-key prefix (for example `ORDER#`, `INVOICE#`, `USER#METADATA`)
 2. Define uniqueness at `(PK, SK)` for that family
-3. Add entity mapping to the shared `ToTable(...)` target with the same PK/SK attribute names
+3. Add entity mapping to the shared `ToDynamoTable(...)` target with the same PK/SK attribute names
 4. Add query paths that include PK and the intended SK condition (`=`, `begins_with`, range)
 5. Keep discriminator enabled unless keys alone guarantee strict type isolation
 
@@ -142,7 +142,7 @@ If your key design already guarantees type isolation, or you need to map existin
 ```csharp
 modelBuilder.Entity<User>(b =>
 {
-    b.ToTable("app-table");
+    b.ToDynamoTable("app-table");
     b.HasPartitionKey(x => x.Pk);
     b.HasSortKey(x => x.Sk);
     b.HasNoDiscriminator();

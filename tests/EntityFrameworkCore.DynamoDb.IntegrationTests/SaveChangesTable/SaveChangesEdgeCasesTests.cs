@@ -162,7 +162,7 @@ public class SaveChangesEdgeCasesTests(DynamoContainerFixture fixture)
 
             modelBuilder.Entity<LongStatementItem>(builder =>
             {
-                builder.ToTable(SaveChangesItemTable.TableName);
+                builder.ToDynamoTable(SaveChangesItemTable.TableName);
                 builder.HasPartitionKey(x => x.Pk);
                 builder.HasSortKey(x => x.Sk);
 

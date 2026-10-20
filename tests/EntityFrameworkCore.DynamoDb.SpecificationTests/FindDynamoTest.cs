@@ -547,17 +547,17 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
 
         protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
         {
-            modelBuilder.Entity<IntKey>().ToTable("ints").HasPartitionKey(x => x.Id);
+            modelBuilder.Entity<IntKey>().ToDynamoTable("ints").HasPartitionKey(x => x.Id);
 
-            modelBuilder.Entity<StringKey>().ToTable("strings").HasPartitionKey(x => x.Id);
+            modelBuilder.Entity<StringKey>().ToDynamoTable("strings").HasPartitionKey(x => x.Id);
 
             modelBuilder
                 .Entity<CompositeKey>()
-                .ToTable("composite")
+                .ToDynamoTable("composite")
                 .HasPartitionKey(x => x.Id1)
                 .HasSortKey(x => x.Id2);
 
-            modelBuilder.Entity<BaseType>().ToTable("base").HasPartitionKey(x => x.Id);
+            modelBuilder.Entity<BaseType>().ToDynamoTable("base").HasPartitionKey(x => x.Id);
 
             modelBuilder.Entity<DerivedType>();
         }

@@ -125,7 +125,7 @@ public class DynamoNullReadMatrixTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<MatrixEntity>(builder =>
             {
-                builder.ToTable("MatrixItems");
+                builder.ToDynamoTable("MatrixItems");
                 builder.HasPartitionKey(x => x.Pk);
                 builder.Property(x => x.ConvertedStatus).HasConversion<string>();
                 builder.Property(x => x.NullableConvertedStatus).HasConversion<string>();

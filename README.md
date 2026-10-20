@@ -43,14 +43,14 @@ public sealed class AppContext : DbContext
     {
         modelBuilder.Entity<User>(b =>
         {
-            b.ToTable("App");
+            b.ToDynamoTable("App");
             b.HasPartitionKey(x => x.PK);
             b.HasSortKey(x => x.SK);
         });
 
         modelBuilder.Entity<Order>(b =>
         {
-            b.ToTable("App");
+            b.ToDynamoTable("App");
             b.HasPartitionKey(x => x.PK);
             b.HasSortKey(x => x.SK);
         });

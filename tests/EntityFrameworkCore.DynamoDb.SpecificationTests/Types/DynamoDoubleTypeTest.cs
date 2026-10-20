@@ -66,7 +66,7 @@ public sealed class DynamoDoubleTypeTest(
 
             modelBuilder
                 .Entity<TypeEntity<double>>()
-                .ToTable("DoubleTypes")
+                .ToDynamoTable("DoubleTypes")
                 .HasPartitionKey(e => e.Id);
         }
     }

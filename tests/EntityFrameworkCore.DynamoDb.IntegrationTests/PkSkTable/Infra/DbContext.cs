@@ -16,7 +16,7 @@ public class PkSkTableDbContext(DbContextOptions options) : DbContext(options)
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder
             .Entity<PkSkItem>()
-            .ToTable(PkSkItemTable.TableName)
+            .ToDynamoTable(PkSkItemTable.TableName)
             .HasPartitionKey(x => x.Pk)
             .HasSortKey(x => x.Sk);
 }
@@ -28,7 +28,7 @@ public class PkSkHasKeyOnlyDbContext(DbContextOptions options) : DbContext(optio
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<PkSkItem>(b =>
         {
-            b.ToTable(PkSkItemTable.TableName);
+            b.ToDynamoTable(PkSkItemTable.TableName);
             b.HasKey(x => new { x.Pk, x.Sk });
         });
 }

@@ -491,7 +491,7 @@ public class ScanQueryGuardTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ScanGuardItem>(b =>
             {
-                b.ToTable("ScanGuardTable");
+                b.ToDynamoTable("ScanGuardTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
             });
@@ -519,7 +519,7 @@ public class ScanQueryGuardTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ScanGuardItem>(b =>
             {
-                b.ToTable("HasKeyScanGuardTable");
+                b.ToDynamoTable("HasKeyScanGuardTable");
                 b.HasKey(x => new { x.Pk, x.Sk });
             });
 

@@ -45,8 +45,9 @@ against `https://dynamodb-ef-core.layeredcraft.dev/`.
   bulk/multi-row operation or suggest synchronous `ExecuteDelete`.
 - `RuntimeResourceNames` and `HasLogicalTableName` are an advanced facility for EF compiled models
   and NativeAOT applications whose physical table/index names differ between environments. Do not
-  present them as a general best practice; ordinary applications configure names with `ToTable(...)`
-  and `HasSecondaryIndexName(...)`.
+  present them as a general best practice; ordinary applications configure names with
+  `ToDynamoTable(...)` and `HasSecondaryIndexName(...)`. The method is `ToDynamoTable`, not
+  `ToTable`, so it stays unambiguous when EF Core Relational's extensions are in scope.
 - Do not invent DynamoMapper hook or converter signatures. Read its focused reference first.
 - Do not expose PartiQL, keys, parameters, or returned items through logs, traces, or interceptors.
 

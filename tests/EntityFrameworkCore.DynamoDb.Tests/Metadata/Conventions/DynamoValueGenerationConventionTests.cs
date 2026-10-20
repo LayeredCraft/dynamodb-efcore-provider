@@ -162,7 +162,7 @@ public class DynamoValueGenerationConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IntPartitionKeyEntity>(b =>
             {
-                b.ToTable("IntPartitionKeyTable");
+                b.ToDynamoTable("IntPartitionKeyTable");
                 b.HasPartitionKey(x => x.Id);
             });
 
@@ -184,7 +184,7 @@ public class DynamoValueGenerationConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<StringPartitionKeyEntity>(b =>
             {
-                b.ToTable("StringPartitionKeyTable");
+                b.ToDynamoTable("StringPartitionKeyTable");
                 b.HasPartitionKey(x => x.Id);
             });
 
@@ -206,7 +206,7 @@ public class DynamoValueGenerationConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GuidPartitionKeyEntity>(b =>
             {
-                b.ToTable("GuidPartitionKeyTable");
+                b.ToDynamoTable("GuidPartitionKeyTable");
                 b.HasPartitionKey(x => x.Id);
             });
 
@@ -222,7 +222,7 @@ public class DynamoValueGenerationConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<StringPartitionKeyEntity>(b =>
             {
-                b.ToTable("HasKeyStringPartitionKeyTable");
+                b.ToDynamoTable("HasKeyStringPartitionKeyTable");
                 b.HasKey(x => x.Id);
             });
 
@@ -238,7 +238,7 @@ public class DynamoValueGenerationConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GuidPartitionKeyEntity>(b =>
             {
-                b.ToTable("HasKeyGuidPartitionKeyTable");
+                b.ToDynamoTable("HasKeyGuidPartitionKeyTable");
                 b.HasKey(x => x.Id);
             });
 
@@ -254,7 +254,7 @@ public class DynamoValueGenerationConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IntPartitionKeyEntity>(b =>
             {
-                b.ToTable("ExplicitIntegerGenerationTable");
+                b.ToDynamoTable("ExplicitIntegerGenerationTable");
                 b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.Id).ValueGeneratedOnAdd();
             });
@@ -271,7 +271,7 @@ public class DynamoValueGenerationConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GuidPartitionKeyEntity>(b =>
             {
-                b.ToTable("ExplicitGuidNoGenerationTable");
+                b.ToDynamoTable("ExplicitGuidNoGenerationTable");
                 b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.Id).ValueGeneratedNever();
             });
@@ -296,7 +296,7 @@ public class DynamoValueGenerationConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<CompositeKeyEntity>(b =>
             {
-                b.ToTable("CompositeKeyTable");
+                b.ToDynamoTable("CompositeKeyTable");
                 b.HasPartitionKey(x => x.Id);
                 b.HasSortKey(x => x.SortKey);
             });
@@ -321,7 +321,7 @@ public class DynamoValueGenerationConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GuidNonKeyEntity>(b =>
             {
-                b.ToTable("GuidNonKeyTable");
+                b.ToDynamoTable("GuidNonKeyTable");
                 b.HasPartitionKey(x => x.Id);
             });
 
@@ -337,7 +337,7 @@ public class DynamoValueGenerationConventionTests
             => modelBuilder.Entity<IntPartitionKeyEntity>(b =>
             {
                 b.HasPartitionKey(x => x.Id);
-                b.ToTable("LateTableMappingTable");
+                b.ToDynamoTable("LateTableMappingTable");
             });
 
         public static LateTableMappingContext Create(IAmazonDynamoDB client)

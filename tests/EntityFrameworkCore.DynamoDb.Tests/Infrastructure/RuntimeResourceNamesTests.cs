@@ -377,7 +377,7 @@ public sealed class RuntimeNamesJitContext(DbContextOptions<RuntimeNamesJitConte
     {
         modelBuilder.Entity<RuntimeNamesJitItem>(entity =>
         {
-            entity.ToTable("placeholder-table").HasLogicalTableName("Items");
+            entity.ToDynamoTable("placeholder-table").HasLogicalTableName("Items");
             entity.HasPartitionKey(item => item.Pk);
             entity
                 .HasGlobalSecondaryIndex("ByCategory", nameof(RuntimeNamesJitItem.Category))
@@ -386,7 +386,7 @@ public sealed class RuntimeNamesJitContext(DbContextOptions<RuntimeNamesJitConte
 
         modelBuilder.Entity<RuntimeNamesJitOther>(entity =>
         {
-            entity.ToTable("other-placeholder-table").HasLogicalTableName("Others");
+            entity.ToDynamoTable("other-placeholder-table").HasLogicalTableName("Others");
             entity.HasPartitionKey(item => item.Pk);
             entity
                 .HasGlobalSecondaryIndex("ByKind", nameof(RuntimeNamesJitOther.Kind))
@@ -421,12 +421,12 @@ public sealed class SharedTableContext(DbContextOptions<SharedTableContext> opti
     {
         modelBuilder.Entity<SharedFirst>(entity =>
         {
-            entity.ToTable("shared-design-table").HasLogicalTableName("Shared");
+            entity.ToDynamoTable("shared-design-table").HasLogicalTableName("Shared");
             entity.HasPartitionKey(item => item.Pk);
         });
         modelBuilder.Entity<SharedSecond>(entity =>
         {
-            entity.ToTable("shared-design-table");
+            entity.ToDynamoTable("shared-design-table");
             entity.HasPartitionKey(item => item.Pk);
         });
     }
@@ -450,12 +450,12 @@ public sealed class ConflictingLogicalNamesContext(
     {
         modelBuilder.Entity<SharedFirst>(entity =>
         {
-            entity.ToTable("conflicting-table").HasLogicalTableName("Alpha");
+            entity.ToDynamoTable("conflicting-table").HasLogicalTableName("Alpha");
             entity.HasPartitionKey(item => item.Pk);
         });
         modelBuilder.Entity<SharedSecond>(entity =>
         {
-            entity.ToTable("conflicting-table").HasLogicalTableName("Beta");
+            entity.ToDynamoTable("conflicting-table").HasLogicalTableName("Beta");
             entity.HasPartitionKey(item => item.Pk);
         });
     }
@@ -469,12 +469,12 @@ public sealed class DuplicateLogicalNameContext(DbContextOptions<DuplicateLogica
     {
         modelBuilder.Entity<SharedFirst>(entity =>
         {
-            entity.ToTable("duplicate-table-a").HasLogicalTableName("Same");
+            entity.ToDynamoTable("duplicate-table-a").HasLogicalTableName("Same");
             entity.HasPartitionKey(item => item.Pk);
         });
         modelBuilder.Entity<SharedSecond>(entity =>
         {
-            entity.ToTable("duplicate-table-b").HasLogicalTableName("Same");
+            entity.ToDynamoTable("duplicate-table-b").HasLogicalTableName("Same");
             entity.HasPartitionKey(item => item.Pk);
         });
     }
@@ -488,7 +488,7 @@ public sealed class TwoIndexContext(DbContextOptions<TwoIndexContext> options) :
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<TwoIndexRow>(entity =>
         {
-            entity.ToTable("two-index-table").HasLogicalTableName("Two");
+            entity.ToDynamoTable("two-index-table").HasLogicalTableName("Two");
             entity.HasPartitionKey(row => row.Pk);
             entity.HasGlobalSecondaryIndex("ByA", nameof(TwoIndexRow.A));
             entity.HasGlobalSecondaryIndex("ByB", nameof(TwoIndexRow.B));

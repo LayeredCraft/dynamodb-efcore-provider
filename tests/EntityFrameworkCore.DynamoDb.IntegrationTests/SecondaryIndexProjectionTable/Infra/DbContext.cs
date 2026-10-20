@@ -12,7 +12,7 @@ public sealed class SecondaryIndexProjectionDbContext(DbContextOptions options) 
         var entity = modelBuilder.Entity<OrderItem>();
 
         entity
-            .ToTable(SecondaryIndexProjectionOrdersTable.TableName)
+            .ToDynamoTable(SecondaryIndexProjectionOrdersTable.TableName)
             .HasPartitionKey(x => x.CustomerId)
             .HasSortKey(x => x.OrderId);
 

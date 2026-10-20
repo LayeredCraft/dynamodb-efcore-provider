@@ -66,7 +66,7 @@ public sealed class DynamoTimeOnlyTypeTest(
 
             modelBuilder
                 .Entity<TypeEntity<TimeOnly>>()
-                .ToTable("TimeOnlyTypes")
+                .ToDynamoTable("TimeOnlyTypes")
                 .HasPartitionKey(e => e.Id);
         }
     }

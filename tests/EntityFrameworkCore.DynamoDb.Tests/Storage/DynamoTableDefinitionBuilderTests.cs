@@ -475,7 +475,7 @@ public sealed class DynamoTableDefinitionBuilderTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PkOnlyEntity>(entity =>
             {
-                entity.ToTable("PkOnly");
+                entity.ToDynamoTable("PkOnly");
                 entity.Property(x => x.Id).HasAttributeName("pk");
                 entity.HasPartitionKey(x => x.Id);
             });
@@ -487,7 +487,7 @@ public sealed class DynamoTableDefinitionBuilderTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PkOnlyEntity>(entity =>
             {
-                entity.ToTable("HasKeyPkOnly");
+                entity.ToDynamoTable("HasKeyPkOnly");
                 entity.Property(x => x.Id).HasAttributeName("pk");
                 entity.HasKey(x => x.Id);
             });
@@ -499,7 +499,7 @@ public sealed class DynamoTableDefinitionBuilderTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IndexedEntity>(entity =>
             {
-                entity.ToTable("HasKeyPkSk");
+                entity.ToDynamoTable("HasKeyPkSk");
                 entity.Property(x => x.Id).HasAttributeName("pk");
                 entity.Property(x => x.Sort).HasAttributeName("sk");
                 entity.HasKey(x => new { x.Id, x.Sort });
@@ -512,7 +512,7 @@ public sealed class DynamoTableDefinitionBuilderTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IndexedEntity>(entity =>
             {
-                entity.ToTable("Indexed");
+                entity.ToDynamoTable("Indexed");
                 entity.Property(x => x.Id).HasAttributeName("pk");
                 entity.Property(x => x.Sort).HasAttributeName("sk");
                 entity.Property(x => x.Customer).HasAttributeName("customer");
@@ -530,7 +530,7 @@ public sealed class DynamoTableDefinitionBuilderTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ScalarTypeEntity>(entity =>
             {
-                entity.ToTable("Scalars");
+                entity.ToDynamoTable("Scalars");
                 entity.Property(x => x.Id).HasAttributeName("pk");
                 entity.Property(x => x.Number).HasAttributeName("number");
                 entity.Property(x => x.Bytes).HasAttributeName("bytes");
@@ -546,7 +546,7 @@ public sealed class DynamoTableDefinitionBuilderTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IndexedEntity>(entity =>
             {
-                entity.ToTable("IncludeProjection");
+                entity.ToDynamoTable("IncludeProjection");
                 entity.Property(x => x.Id).HasAttributeName("pk");
                 entity.Property(x => x.Customer).HasAttributeName("customer");
                 entity.HasPartitionKey(x => x.Id);

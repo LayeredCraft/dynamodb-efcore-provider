@@ -26,7 +26,7 @@ Partition key only:
 ```csharp
 modelBuilder.Entity<Order>(builder =>
 {
-    builder.ToTable("Orders");
+    builder.ToDynamoTable("Orders");
     builder.HasPartitionKey(x => x.CustomerId);
     builder.HasSortKey(x => x.OrderId);
 
@@ -64,7 +64,7 @@ the name used by `.WithIndex("name")` when targeting the index in queries.
 ```csharp
 modelBuilder.Entity<Order>(builder =>
 {
-    builder.ToTable("Orders");
+    builder.ToDynamoTable("Orders");
     builder.HasPartitionKey(x => x.CustomerId);
     builder.HasSortKey(x => x.OrderId);
 
@@ -84,7 +84,7 @@ public sealed class Order
 
 modelBuilder.Entity<Order>(builder =>
 {
-    builder.ToTable("Orders");
+    builder.ToDynamoTable("Orders");
     builder.HasLocalSecondaryIndex("ByCreatedAt", x => x.CreatedAt);
 });
 ```

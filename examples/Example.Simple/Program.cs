@@ -63,7 +63,7 @@ internal class DynamoDbContext : DbContext
         }));
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
-        => modelBuilder.Entity<Item>().ToTable("SimpleItems").HasPartitionKey(x => x.Id);
+        => modelBuilder.Entity<Item>().ToDynamoTable("SimpleItems").HasPartitionKey(x => x.Id);
 }
 
 public class Item

@@ -96,4 +96,33 @@ public class DynamoApiConsistencyTest(DynamoApiConsistencyTest.DynamoApiConsiste
             }
         };
     }
+
+    [Fact]
+    public void Entity_type_extensions_should_not_expose_relational_table_method_names()
+    {
+        var forbiddenNames = new[]
+        {
+            "ToTable",
+            "CanSetTable",
+            "SetTableName",
+            "GetTableNameConfigurationSource"
+        };
+
+        var matchingMethods =
+            GetAllTypes(
+                    new[]
+                    {
+                        typeof(DynamoEntityTypeBuilderExtensions),
+                        typeof(DynamoEntityTypeExtensions)
+                    })
+                .SelectMany(
+                    type => type.GetMethods(
+                        PublicInstance | BindingFlags.Static | BindingFlags.DeclaredOnly))
+                .Where(method => forbiddenNames.Contains(method.Name))
+                .Select(method => method.DeclaringType!.Name + "." + method.Name)
+                .Distinct()
+                .ToList();
+
+        Assert.Empty(matchingMethods);
+    }
 }

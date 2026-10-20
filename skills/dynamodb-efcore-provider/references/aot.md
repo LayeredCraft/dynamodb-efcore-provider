@@ -137,7 +137,7 @@ Only when one artifact is promoted unchanged across environments with differing 
 logical identity and remap at runtime:
 
 ```csharp
-b.ToTable(designTimeTable).HasLogicalTableName("Trivia");
+b.ToDynamoTable(designTimeTable).HasLogicalTableName("Trivia");
 b.HasGlobalSecondaryIndex("Gsi1", x => x.Gs1Pk).HasSecondaryIndexName(designTimeGsi1);
 
 options.UseDynamo(d => d.RuntimeResourceNames(r => r

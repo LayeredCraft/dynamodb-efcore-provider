@@ -53,7 +53,7 @@ public abstract class ValueConvertersEndToEndDynamoTest(
 
             modelBuilder
                 .Entity<ConvertingEntity>()
-                .ToTable("ConvertingEntities")
+                .ToDynamoTable("ConvertingEntities")
                 .HasPartitionKey(e => e.Id);
         }
     }

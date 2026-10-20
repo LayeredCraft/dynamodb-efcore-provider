@@ -23,7 +23,7 @@ public class NamingOverridesTableDbContext(DbContextOptions options) : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<QuestionItem>(builder =>
         {
-            builder.ToTable(NamingOverridesItemTable.TableName);
+            builder.ToDynamoTable(NamingOverridesItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
             builder.HasGlobalSecondaryIndex("gs1-index", x => x.Gs1Pk, x => x.Gs1Sk);

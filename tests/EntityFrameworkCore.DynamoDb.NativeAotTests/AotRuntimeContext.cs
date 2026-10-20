@@ -50,7 +50,7 @@ public sealed class AotRuntimeContext : DbContext
         {
             // Its own table: sharing the items table would add a discriminator filter to every
             // items query. Not part of the runtime resource-name mapping.
-            DynamoEntityTypeBuilderExtensions.ToTable(entity, QuestionsTableName);
+            entity.ToDynamoTable(QuestionsTableName);
             entity.HasPartitionKey(question => question.Pk);
             DynamoEntityTypeBuilderExtensions.HasSortKey(entity, question => question.Sk);
             entity.ComplexProperty(question => question.Details);
@@ -59,8 +59,8 @@ public sealed class AotRuntimeContext : DbContext
 
         modelBuilder.Entity<AotRuntimeItem>(entity =>
         {
-            DynamoEntityTypeBuilderExtensions
-                .ToTable(entity, DesignTimeTableName)
+            entity
+                .ToDynamoTable(DesignTimeTableName)
                 .HasLogicalTableName(LogicalTableName);
             entity.HasPartitionKey(item => item.Pk);
             DynamoEntityTypeBuilderExtensions.HasSortKey(entity, item => item.Sk);

@@ -90,13 +90,13 @@ public sealed class MaterializationInterceptionDynamoTest(NonSharedFixture fixtu
 
             modelBuilder.Entity<Book>(b =>
             {
-                b.ToTable("Books");
+                b.ToDynamoTable("Books");
                 b.HasPartitionKey(e => e.Id);
             });
 
             modelBuilder.Entity<Pamphlet>(b =>
             {
-                b.ToTable("Pamphlets");
+                b.ToDynamoTable("Pamphlets");
                 b.HasPartitionKey(e => e.Id);
             });
         }

@@ -32,7 +32,7 @@ public class DiscriminatorMetadataTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<UserEntity>(b =>
             {
-                b.ToTable("Users");
+                b.ToDynamoTable("Users");
                 b.HasPartitionKey(x => x.Id);
             });
 
@@ -46,13 +46,13 @@ public class DiscriminatorMetadataTests
         {
             modelBuilder.Entity<UserEntity>(b =>
             {
-                b.ToTable("App");
+                b.ToDynamoTable("App");
                 b.HasPartitionKey(x => x.Id);
             });
 
             modelBuilder.Entity<OrderEntity>(b =>
             {
-                b.ToTable("App");
+                b.ToDynamoTable("App");
                 b.HasPartitionKey(x => x.Id);
             });
         }
@@ -70,13 +70,13 @@ public class DiscriminatorMetadataTests
 
             modelBuilder.Entity<UserEntity>(b =>
             {
-                b.ToTable("App");
+                b.ToDynamoTable("App");
                 b.HasPartitionKey(x => x.Id);
             });
 
             modelBuilder.Entity<OrderEntity>(b =>
             {
-                b.ToTable("App");
+                b.ToDynamoTable("App");
                 b.HasPartitionKey(x => x.Id);
             });
         }
@@ -92,13 +92,13 @@ public class DiscriminatorMetadataTests
         {
             modelBuilder.Entity<UserEntity>(b =>
             {
-                b.ToTable("App");
+                b.ToDynamoTable("App");
                 b.HasPartitionKey(x => x.Id);
             });
 
             modelBuilder.Entity<OrderEntity>(b =>
             {
-                b.ToTable("App");
+                b.ToDynamoTable("App");
                 b.HasPartitionKey(x => x.Id);
             });
 
@@ -115,18 +115,18 @@ public class DiscriminatorMetadataTests
         {
             modelBuilder.Entity<UserEntity>(b =>
             {
-                b.ToTable("App");
+                b.ToDynamoTable("App");
                 b.HasPartitionKey(x => x.Id);
             });
 
             modelBuilder.Entity<OrderEntity>(b =>
             {
-                b.ToTable("App");
+                b.ToDynamoTable("App");
                 b.HasPartitionKey(x => x.Id);
             });
 
             // Last-wins table mapping should be respected by model-finalizing conventions.
-            modelBuilder.Entity<OrderEntity>().ToTable("Orders");
+            modelBuilder.Entity<OrderEntity>().ToDynamoTable("Orders");
         }
 
         public static SharedTableThenSplitContext Create(IAmazonDynamoDB client)
@@ -141,13 +141,13 @@ public class DiscriminatorMetadataTests
             modelBuilder.Entity<UserEntity>(b =>
             {
                 b.HasNoDiscriminator();
-                b.ToTable("App");
+                b.ToDynamoTable("App");
                 b.HasPartitionKey(x => x.Id);
             });
 
             modelBuilder.Entity<OrderEntity>(b =>
             {
-                b.ToTable("App");
+                b.ToDynamoTable("App");
                 b.HasPartitionKey(x => x.Id);
             });
         }
@@ -162,18 +162,18 @@ public class DiscriminatorMetadataTests
         {
             modelBuilder.Entity<UserEntity>(b =>
             {
-                b.ToTable("Users");
+                b.ToDynamoTable("Users");
                 b.HasPartitionKey(x => x.Id);
             });
 
             modelBuilder.Entity<OrderEntity>(b =>
             {
-                b.ToTable("Orders");
+                b.ToDynamoTable("Orders");
                 b.HasPartitionKey(x => x.Id);
             });
 
             // Last-wins table mapping should be respected by model-finalizing conventions.
-            modelBuilder.Entity<OrderEntity>().ToTable("Users");
+            modelBuilder.Entity<OrderEntity>().ToDynamoTable("Users");
         }
 
         public static SplitThenSharedTableContext Create(IAmazonDynamoDB client)
