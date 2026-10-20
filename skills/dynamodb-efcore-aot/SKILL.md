@@ -37,6 +37,24 @@ generator unless EF Core can no longer represent a required query shape.
 - Support both EF10 and EF11 configurations. Treat generated code as compiler input, not text that
   is only inspected by assertions.
 
+## Failure triage
+
+Classify a precompiled-query failure before changing provider code.
+
+- Errors from EF query discovery, C#-to-LINQ translation, Roslyn syntax analysis, or interceptor
+  source-location binding occur before DynamoDB translation. Reduce them to a minimal EF Core repro;
+  do not add a provider workaround unless the provider integration point causes the failure.
+- Errors from Dynamo query translation, generated PartiQL templates, generated runtime entry points,
+  or the provider's generated-code rewrite belong here. Cover the fix with the smallest relevant
+  generation test and, when runtime behavior changes, an AOT publish-and-run test.
+- Keep query examples as one statically visible chain. Runtime scalar values are valid query
+  parameters; query composition through runtime-built expression trees is not. If an EF
+  precompiler cannot bind a direct context reference or argument, local aliases are a consumer
+  workaround pending a minimal upstream repro, not a provider query restriction.
+- Generated interceptors are compiler input tied to source locations. A workflow that retains them
+  must remove stale output before its tooling build, regenerate it, then compile the new output.
+  This is consumer build hygiene, not provider query translation behavior.
+
 ## Verification
 
 Run the smallest relevant check first:

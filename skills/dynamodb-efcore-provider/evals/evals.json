@@ -18,6 +18,12 @@
       "prompt": "Our order service needs optimistic concurrency and transactional writes. Explain the provider behavior, the DynamoDB limits we need to design for, and why SaveChangesAsync does not replace table provisioning.",
       "expected_output": "Explains concurrency, transaction limits, asynchronous writes and lifecycle behavior without promising relational database features.",
       "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Our NativeAOT service manually retains generated EF interceptors. A PK/SK lookup with runtime keys is reported as dynamic, and generation later fails after a source edit. Show the supported query form and safe regeneration sequence.",
+      "expected_output": "Shows a single statically visible AOT query chain with local context, scalar values, and cancellation token; explains that scalar parameters are not dynamic and aliases are unnecessary for ordinary JIT queries; and gives the delete-stale-output, build, optimize, rebuild sequence without misdiagnosing a provider limitation.",
+      "files": []
     }
   ]
 }

@@ -77,10 +77,50 @@ the EF generation stage, not for the published app:
 
 ## Query shape
 
-Write normal LINQ calls. For a local array with `Contains`, cast it to `IEnumerable<T>`
+Write normal LINQ calls. Runtime scalar values become query parameters; passing a key or cancellation
+token does not itself make a query dynamic. Keep the query as one statically visible chain rather than
+composing an `IQueryable` across statements or building expression trees at runtime.
+
+Use locals for the context, runtime values, and terminal cancellation token in portable
+AOT/precompiled-query code. This is not required for ordinary JIT EF Core queries, where direct
+context references and method parameters remain appropriate:
+
+```csharp
+var queryContext = context;
+var partitionKey = partitionKeyArg;
+var sortKey = sortKeyArg;
+var queryCancellationToken = cancellationToken;
+
+var item = await queryContext.Items
+    .Where(item => item.Pk == partitionKey && item.Sk == sortKey)
+    .SingleOrDefaultAsync(queryCancellationToken);
+```
+
+The locals do not change query semantics. They give EF's source precompiler stable symbols to bind.
+If this shape still fails before DynamoDB translation, reduce it to a minimal EF Core repro; do not
+assume a DynamoDB LINQ or PartiQL limitation.
+
+For a local array with `Contains`, cast it to `IEnumerable<T>`
 (`((IEnumerable<string>)keys).Contains(item.Pk)`) when the compiler binds the span-based overload,
 which EF Core's precompiler cannot translate. An empty or null local collection becomes a false
 predicate at runtime.
+
+## Manual interceptor generation
+
+Normal publish or configured EF Tasks generation is preferred. If a project intentionally retains
+interceptor source and invokes `dotnet ef dbcontext optimize --precompile-queries --nativeaot`
+manually, treat generated files as compiler input:
+
+1. Remove prior generated interceptor output before the tooling build. C# interceptor locations bind
+   to source; an edit to an intercepted query can make old generated files fail compilation before
+   regeneration starts.
+2. Build the tooling inputs, run the optimize command, then build again to compile the new output.
+3. Use `--no-scaffold` when the context library already owns a checked-in compiled model; generate
+   only interceptors in the query project to avoid duplicate compiled-model types.
+4. Keep the EF CLI/tooling, Tasks, Design package, EF Core runtime, and provider versions aligned.
+
+A source edit to an intercepted query requires repeating this sequence. This is generation workflow
+hygiene, not a DynamoDB query translation rule.
 
 Precompilable beyond entity materialization: `ToListAsync`/`FirstAsync`/`SingleAsync` variants,
 scalar projections (including nullable and enum types), `Limit`/`WithNextToken`, `AllowScan`,
