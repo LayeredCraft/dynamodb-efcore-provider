@@ -71,8 +71,9 @@ recognized EF terminal — precompiles and executes correctly under NativeAOT, p
 mechanics work. For a tracked, non-empty result this is enough for full pagination:
 `EntityEntry.GetExecuteStatementResponse()` exposes the page's `NextToken` (see
 [Pagination](querying/pagination.md#accessing-the-raw-response-token)), verified against a
-precompiled NativeAOT query. `ToPageAsync(...)` remains necessary for projections, no-tracking
-queries, and empty pages, where there is no tracked entity to read the token from. Tracked upstream:
+precompiled NativeAOT query. Outside NativeAOT, `ToPageAsync(...)` remains necessary for
+projections, no-tracking queries, and empty pages, where there is no tracked entity to read the
+token from; under NativeAOT those shapes have no supported pagination path. Tracked upstream:
 [dotnet/efcore#38962](https://github.com/dotnet/efcore/issues/38962). See [Precompiled Queries and
 NativeAOT](querying/precompiled-queries.md#restrictions) for details.
 
@@ -124,7 +125,9 @@ verification.
 ### Runtime resource names and `WithIndex`
 
 When [runtime resource names](configuration/runtime-resource-names.md) are configured, a precompiled
-query that calls `WithIndex` keeps the physical index name from design time; it is not remapped. See
+query that calls `WithIndex` must pass the design-time physical index name: the query is translated
+against the design-time model, and execution uses the mapped runtime index. The same text is not
+portable to a JIT model with a mapping, which requires the runtime physical name. See
 [Runtime resource names](configuration/runtime-resource-names.md) for the supported patterns.
 
 ## Database lifecycle

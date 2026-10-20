@@ -34,8 +34,17 @@ and allow EF Core's generated interceptor namespace:
   <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks"
                     Version="10.0.12"
                     PrivateAssets="all" />
+  <PackageReference Include="Microsoft.EntityFrameworkCore.Design"
+                    Version="10.0.12"
+                    PrivateAssets="all" />
 </ItemGroup>
 ```
+
+Every project that declares a context or a query needs the Tasks reference and the interceptor
+namespace; `PublishAot` belongs only in the published startup project. `Microsoft.EntityFrameworkCore.Design`
+must also be resolvable in each generating project: EF Core 10's Tasks package brings it
+transitively, while EF Core 11's declares no dependencies, so reference it explicitly. Without the
+interceptor namespace entry, the generated interceptor file fails to compile.
 
 Use the Tasks package version matching the EF Core version selected by your provider package. The
 example uses EF Core 10.0.12. For EF Core 11, pin to the exact build your application's other EF
@@ -49,8 +58,11 @@ Publish for a concrete runtime identifier:
 dotnet publish --configuration Release --framework net10.0 --runtime linux-x64
 ```
 
-The build generates both the compiled model and query interceptors. No generated files need to be
-checked into source control.
+Publishing generates both the compiled model and query interceptors. No generated files need to be
+checked into source control. EF Core 10 generates only when `PublishAot` (or `EFOptimizeContext`,
+which EF Core 11 removed) is set; EF Core 11 generates on any publish. To generate during build
+instead, set `EFScaffoldModelStage` and `EFPrecompileQueriesStage` to `build` (plus
+`EFOptimizeContext=true` on EF Core 10).
 
 ## Query shape
 
@@ -124,8 +136,9 @@ for local arrays, which EF Core's query precompiler cannot currently translate.
     result, this is enough for full pagination: the page's `NextToken` is available via
     `EntityEntry.GetExecuteStatementResponse()` (see [Pagination](pagination.md#accessing-the-raw-response-token)),
     verified under a precompiled NativeAOT query in this provider's own runtime tests.
-    `ToPageAsync(...)` is still required when there is no tracked entity to read the token from —
-    **projections**, **no-tracking queries**, and **empty pages**. Tracked upstream:
+    `ToPageAsync(...)` is still required outside NativeAOT when there is no tracked entity to read
+    the token from — **projections**, **no-tracking queries**, and **empty pages**. Under NativeAOT
+    those shapes have no supported pagination path. Tracked upstream:
     [dotnet/efcore#38962](https://github.com/dotnet/efcore/issues/38962). See
     [Limitations](../limitations.md).
 - EF Core's precompiler currently rejects nullable-coalescing projections before provider

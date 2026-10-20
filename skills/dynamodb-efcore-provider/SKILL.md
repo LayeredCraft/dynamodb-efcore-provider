@@ -23,7 +23,7 @@ against `https://dynamodb-ef-core.layeredcraft.dev/`.
 | Write LINQ, understand translation, scans, indexes, consistency, projection, ordering, limits, pagination, or generated PartiQL | `references/querying.md`                                          |
 | Add, update, delete, transact, configure concurrency, create tables, seed, or add health checks                                 | `references/writes-and-lifecycle.md`                              |
 | Enable logs, tracing, capacity data, command interception, or debug a failure                                                   | `references/diagnostics-and-limits.md`                            |
-| Use precompiled queries or NativeAOT                                                                                            | `references/aot.md`                                               |
+| Use precompiled queries or NativeAOT (requires `Microsoft.EntityFrameworkCore.Tasks`)                                           | `references/aot.md`                                               |
 | Use DynamoMapper                                                                                                                | `references/dynamo-mapper/core-usage.md`                          |
 | Need DynamoDB PartiQL syntax, functions, transactions, batches, or IAM                                                          | `references/partiql/overview.md`, then the smallest matching page |
 

@@ -1,52 +1,118 @@
 # Precompiled Queries and NativeAOT
 
-NativeAOT support is experimental and uses EF Core precompiled queries. Keep queries statically
-discoverable at build time; queries assembled from runtime expression trees cannot be precompiled.
+NativeAOT support is experimental and builds on EF Core precompiled queries. Queries must be
+statically discoverable at build time. Known-invalid shapes fail the build, but two silent cases
+also exist — a query with no generated interceptor (`ToPageAsync`) or one whose interceptor failed
+to bind publishes fine and throws at first execution:
+`Query wasn't precompiled and dynamic code isn't supported with NativeAOT`. Test the exact deployed
+query shapes; a warning-free trimmed app is not yet guaranteed.
 
-Check the current provider documentation before enabling it. Important restrictions include
-filtering on or projecting complex members, field-backed primitive collections, some collection
-converter shapes, and query expressions EF Core cannot convert to generated code. Entities with
-complex properties and complex collections materialize, but must use `AsNoTracking()` under NativeAOT
-(dotnet/efcore#37750). On EF Core 10 only, that in turn requires the entity type to be declared in
-the global namespace, because EF Core 10's precompiler generates invalid C# for a no-tracking query
-over any namespaced entity type; EF Core 11 does not have this defect. Unsupported precompiled
-shapes fail during build rather than falling back at runtime.
+## Project setup
 
-Native publish-and-run is validated for both EF10 and EF11. Treat warnings from trimming or
-dynamic-code paths as part of the experimental support boundary and test the exact deployed query
-shapes.
+```xml
+<PropertyGroup>
+  <PublishAot>true</PublishAot>
+  <InterceptorsNamespaces>$(InterceptorsNamespaces);Microsoft.EntityFrameworkCore.GeneratedInterceptors</InterceptorsNamespaces>
+</PropertyGroup>
 
-`ExecuteUpdateAsync` precompiles under the same rules. On EF10 a single precompiled `ExecuteUpdate`
-cannot mix constant and computed (self-referencing) setter values — the build fails with a clear
-error; split such updates into separate calls. EF11 supports the mixed shape.
+<ItemGroup>
+  <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks" Version="10.0.12" PrivateAssets="all" />
+  <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" PrivateAssets="all" />
+</ItemGroup>
+```
 
-## Runtime resource names (advanced; compiled models only)
+Publish for a concrete runtime identifier:
+`dotnet publish -c Release -f net10.0 -r linux-x64`.
 
-An EF compiled model bypasses `OnModelCreating`, and DynamoDB statements name physical tables and
-indexes directly. Only when **all** of these hold — a compiled model, physical table or index names
-that differ between environments, and one artifact promoted unchanged — declare a logical table
-identity and supply the physical names at runtime:
+- `PublishAot` belongs only in the published startup project; every project that declares a context
+  or query needs Tasks, `InterceptorsNamespaces`, and Design. Without the namespace entry the
+  generated interceptor file fails to compile (CS9137).
+- `Microsoft.EntityFrameworkCore.Design` must be resolvable in each generating project. EF Core 10's
+  Tasks package brings it transitively; EF Core 11's has no dependencies, so reference it explicitly.
+- Version pins must line up: Tasks, Design, EF Core, and the provider release. A mismatch fails
+  generation with `generated an incompatible precompiled-query executor template`. On EF Core 11
+  pin the exact prerelease build.
+- `PublishAot` alone generates nothing: without Tasks there is no compiled model and no interceptor.
+  Generation runs at publish — on EF Core 10 only when `PublishAot` (or `EFOptimizeContext`) is set,
+  on EF Core 11 on any publish. To generate during build instead, set `EFScaffoldModelStage` and
+  `EFPrecompileQueriesStage` to `build`, plus `EFOptimizeContext=true` on EF Core 10. `publish` plus
+  `build` is a build error, and `EFOptimizeContext` itself is rejected on EF Core 11. No
+  provider-specific MSBuild property exists.
+- Multi-targeted or custom-`Configuration` projects can lose build context inside the generator's
+  inner build; publish a single-targeted project.
+
+## Query shape
+
+Write normal LINQ calls. For a local array with `Contains`, cast it to `IEnumerable<T>`
+(`((IEnumerable<string>)keys).Contains(item.Pk)`) when the compiler binds the span-based overload,
+which EF Core's precompiler cannot translate. An empty or null local collection becomes a false
+predicate at runtime.
+
+Precompilable beyond entity materialization: `ToListAsync`/`FirstAsync`/`SingleAsync` variants,
+scalar projections (including nullable and enum types), `Limit`/`WithNextToken`, `AllowScan`,
+`WithConsistentRead`, `WithIndex`, `ExecuteUpdateAsync`, `ExecuteDeleteAsync`. Execution is
+async-only; synchronous operators fail at generation time.
+
+## Restrictions
+
+- Query roots must be visible to the EF Core build task; runtime-built expression trees are not
+  supported. Provider translation limits still apply and fail at build instead of runtime.
+- A parameterized argument to a provider fluent method must be a local variable or lambda parameter,
+  not the enclosing method's parameter, a field, or a constant. Assign it to a local first
+  (`var pageSize = pageSizeArg;`).
+- `ToPageAsync(...)` is never discovered, so it cannot run under NativeAOT: publish succeeds and the
+  first execution throws. Use `Limit(pageSize).WithNextToken(nextToken).ToListAsync()` and read
+  `EntityEntry.GetExecuteStatementResponse()?.NextToken` from a tracked, non-empty result.
+  Projections, no-tracking queries, and empty pages have no AOT pagination path.
+- A local collection used with `Contains` shares DynamoDB's PartiQL parameter budget: 50 values
+  against the partition key, 100 otherwise. The provider stops at the first excess item and throws.
+- EF Core's precompiler rejects nullable-coalescing projections.
+- Query constants and parameters must bind to a mapped entity property; otherwise precompilation
+  throws `InvalidOperationException` rather than failing via reflection at runtime.
+- Materialization supports string, nullable numerics, Boolean, binary, converted scalars,
+  one-dimensional arrays with non-nullable elements, and enums (numeric unless a converter is
+  configured). Primitive `List<T>`/`HashSet<T>`/`Dictionary<string, T>` work with primitive or
+  element-converted values; a property-level value converter composed over the collection fails at
+  compiled-model generation. Use element-level conversion instead.
+- Reading a non-public mapped field during materialization is unsupported, affecting field-backed
+  collection properties and some auto-properties. Either keep those members off the materialized
+  entity or set `UsePropertyAccessMode(PropertyAccessMode.PreferProperty)`. Complex collections are
+  unaffected (materialization only writes them).
+- Complex properties and complex collections materialize, but under NativeAOT query them with
+  `AsNoTracking()`: a tracked query throws
+  `Model building is not supported when publishing with NativeAOT` (dotnet/efcore#37750). On EF Core
+  10, every precompiled no-tracking query over an entity in a normal namespace generates invalid C#,
+  so the workaround is a global-namespace entity type — not viable for most apps.
+- Filtering on or projecting complex members is untested and can fail during `dotnet publish`.
+- `ExecuteUpdateAsync` and `ExecuteDeleteAsync` precompile only for full-primary-key, single-item
+  operations. On EF Core 10 one precompiled update cannot mix constant and computed setters — split
+  it; the provider fails the build rather than risk a wrong write. EF Core 11 supports the mix.
+- `SaveChanges` works under NativeAOT. Table lifecycle and `HasData` seeding rely on the design-time
+  model, which is unavailable there: provision tables and seed data out of band.
+- Trim and dynamic-code warnings from EF Core, the AWS SDK, and non-precompiled provider paths are
+  expected; suppress only IDs whose source is known.
+
+## Runtime resource names (compiled models only)
+
+A compiled model embeds the physical names it was generated with and bypasses `OnModelCreating`.
+Only when one artifact is promoted unchanged across environments with differing names, declare a
+logical identity and remap at runtime:
 
 ```csharp
-b.ToTable(designTimeTable).HasLogicalTableName("Trivia");                  // model
+b.ToTable(designTimeTable).HasLogicalTableName("Trivia");
 b.HasGlobalSecondaryIndex("Gsi1", x => x.Gs1Pk).HasSecondaryIndexName(designTimeGsi1);
 
-options.UseDynamo(d => d.RuntimeResourceNames(r => r                       // runtime
+options.UseDynamo(d => d.RuntimeResourceNames(r => r
     .Table("Trivia", physicalTable)
     .SecondaryIndex("Trivia", "Gsi1", physicalGsi1)));
 ```
 
-- Do **not** recommend this for ordinary JIT applications, identical physical names, or when
-  rebuilding the compiled model per environment is acceptable. Use `ToTable(...)` and
-  `HasSecondaryIndexName(...)` instead.
-- The logical table identity is `HasLogicalTableName`; the logical index identity is the EF index
-  name; `ToTable`/`HasSecondaryIndexName` stay the physical (design-time) names.
-- Skip the mapping while EF design-time tooling generates the compiled model and interceptors
-  (`if (!EF.IsDesignTime)`), so the artifact carries design-time names only.
-- Mappings are fixed for the model's lifetime: not per-request table switching or tenant routing. A
-  compiled model instance cannot be reused with a different mapping.
-- `WithIndex("name")` always takes a physical index name: the configured name in JIT, the runtime
-  name in JIT with a mapping, and the design-time name in precompiled queries. It is not portable
-  between those modes; prefer automatic index selection when using runtime resource names.
-- Unknown or misspelled logical names fail fast at model initialization.
+Guard the mapping with `if (!EF.IsDesignTime)`. Partial mappings are allowed; unmapped resources keep
+their model names. The mapping is fixed for the model's lifetime — reusing an initialized compiled
+model with a different or missing mapping throws `InvalidOperationException` — and unknown logical
+names fail fast at model initialization. Not needed for JIT builds, identical names, or
+per-environment rebuilds.
 
+`WithIndex("name")` in a precompiled query takes the **design-time** physical index name; the mapped
+runtime name is applied at execution. The same text is not portable to JIT-with-mapping, where the
+runtime name is required, so prefer automatic index selection when using runtime resource names.
