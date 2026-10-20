@@ -41,6 +41,40 @@ Publish for a concrete runtime identifier:
 - Multi-targeted or custom-`Configuration` projects can lose build context inside the generator's
   inner build; publish a single-targeted project.
 
+### Context and query in different assemblies
+
+When the published application contains the query but references a library that declares the
+`DbContext`, add this assembly attribute to the **query/startup project**. It lets the EF build task
+discover which referenced context must compile its query:
+
+```csharp
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using MyApplication.Data;
+
+[assembly: DbContext(typeof(ApplicationDbContext))]
+```
+
+The query project still needs Tasks, Design, and `InterceptorsNamespaces`; the context library needs
+the same packages and namespace entry. If the library already checks in a compiled model, set
+`EFScaffoldModelStage` to `none` there and generate only query interceptors in the query project.
+Otherwise EF generates a second compiled model with duplicate types. A checked-in compiled model is
+compatible with generated query interceptors.
+
+### Reflection-disabled JSON applications
+
+EF's generation inner build can load application code. If an application sets
+`JsonSerializerIsReflectionEnabledByDefault` to `false` and precompilation fails with
+`Reflection-based serialization has been disabled for this application`, enable reflection only for
+the EF generation stage, not for the published app:
+
+```xml
+<PropertyGroup>
+  <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+  <JsonSerializerIsReflectionEnabledByDefault
+    Condition="'$(_EFGenerationStage)' != ''">true</JsonSerializerIsReflectionEnabledByDefault>
+</PropertyGroup>
+```
+
 ## Query shape
 
 Write normal LINQ calls. For a local array with `Contains`, cast it to `IEnumerable<T>`
@@ -57,6 +91,10 @@ async-only; synchronous operators fail at generation time.
 
 - Query roots must be visible to the EF Core build task; runtime-built expression trees are not
   supported. Provider translation limits still apply and fail at build instead of runtime.
+- `DbContext.FindAsync` is not discovered by EF's precompiler. It can appear to work in JIT builds,
+  but NativeAOT throws at first execution because it needs dynamic query compilation. Replace it
+  with a visible `DbSet<TEntity>.Where(...).SingleOrDefaultAsync(...)` query. Copy method arguments
+  used in the expression to locals first when needed for interceptor binding.
 - A parameterized argument to a provider fluent method must be a local variable or lambda parameter,
   not the enclosing method's parameter, a field, or a constant. Assign it to a local first
   (`var pageSize = pageSizeArg;`).
