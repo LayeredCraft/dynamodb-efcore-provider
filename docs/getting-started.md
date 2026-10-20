@@ -69,7 +69,7 @@ public class ShopContext : DbContext
     {
         modelBuilder.Entity<Product>(b =>
         {
-            b.ToTable("Products");
+            b.ToDynamoTable("Products");
             b.HasPartitionKey(p => p.Id);
         });
     }
@@ -104,7 +104,7 @@ Inside `OnModelCreating`, every entity needs at minimum a table name and a parti
 ```csharp
 modelBuilder.Entity<Product>(b =>
 {
-    b.ToTable("Products");          // DynamoDB table name — must already exist
+    b.ToDynamoTable("Products");    // DynamoDB table name — must already exist
     b.HasPartitionKey(p => p.Id);   // partition key attribute
 });
 ```

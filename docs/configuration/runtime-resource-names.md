@@ -10,8 +10,8 @@ _An advanced facility for **EF compiled models and NativeAOT applications** that
 
 !!! warning "This is not the general way to configure resource names"
 
-    Configure tables and indexes in the model with `ToTable(...)` and `HasSecondaryIndexName(...)`, as
-    described in [Table and Key Mapping](table-key-mapping.md) and
+    Configure tables and indexes in the model with `ToDynamoTable(...)` and
+    `HasSecondaryIndexName(...)`, as described in [Table and Key Mapping](table-key-mapping.md) and
     [Secondary Indexes](../modeling/secondary-indexes.md). Do not introduce logical table identities
     and runtime mappings unless you are in the situation described below. This page documents a
     facility for that specific situation, not a recommended default.
@@ -50,11 +50,11 @@ environment's **physical name** closes that gap.
 |---|---|---|
 | **Logical table identity** | Stable model identity of a table, independent of its physical name | `HasLogicalTableName("Trivia")` |
 | **Logical index identity** | Stable model identity of a secondary index: its EF index name | The name passed to `HasGlobalSecondaryIndex` / `HasLocalSecondaryIndex` |
-| **Physical resource name** | The actual DynamoDB table or index name | `ToTable(...)`, `HasSecondaryIndexName(...)`, overridden at runtime by `RuntimeResourceNames` |
+| **Physical resource name** | The actual DynamoDB table or index name | `ToDynamoTable(...)`, `HasSecondaryIndexName(...)`, overridden at runtime by `RuntimeResourceNames` |
 
-`ToTable(...)` and `HasSecondaryIndexName(...)` keep their normal meaning: the physical name. The
-values you give them in the model are the **design-time** physical names. They are what the model
-uses when no runtime mapping is configured, and what a compiled model is generated with.
+`ToDynamoTable(...)` and `HasSecondaryIndexName(...)` keep their normal meaning: the physical
+name. The values you give them in the model are the **design-time** physical names. They are what
+the model uses when no runtime mapping is configured, and what a compiled model is generated with.
 
 ## Declare the logical identities in the model
 
@@ -63,7 +63,7 @@ Only needed when you use runtime mappings.
 ```csharp
 modelBuilder.Entity<Player>(b =>
 {
-    b.ToTable(designTimeTableName).HasLogicalTableName("Trivia");
+    b.ToDynamoTable(designTimeTableName).HasLogicalTableName("Trivia");
     b.HasPartitionKey(x => x.Pk);
     b.HasSortKey(x => x.Sk);
     b.HasGlobalSecondaryIndex("Gsi2", x => x.Gs2Pk, x => x.Gs2Sk)

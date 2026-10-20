@@ -64,7 +64,7 @@ public sealed class DynamoBoolTypeTest(
         {
             base.OnModelCreating(modelBuilder, context);
 
-            modelBuilder.Entity<TypeEntity<bool>>().ToTable("BoolTypes").HasPartitionKey(e => e.Id);
+            modelBuilder.Entity<TypeEntity<bool>>().ToDynamoTable("BoolTypes").HasPartitionKey(e => e.Id);
         }
     }
 }

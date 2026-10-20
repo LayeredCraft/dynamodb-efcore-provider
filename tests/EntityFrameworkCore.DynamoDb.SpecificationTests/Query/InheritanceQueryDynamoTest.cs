@@ -553,15 +553,15 @@ public abstract class InheritanceQueryDynamoTest
             modelBuilder.Ignore<BirdQuery>();
             modelBuilder.Ignore<AnimalQuery>();
 
-            modelBuilder.Entity<Animal>().ToTable("Animals").HasPartitionKey(e => e.Id);
+            modelBuilder.Entity<Animal>().ToDynamoTable("Animals").HasPartitionKey(e => e.Id);
             modelBuilder.Entity<Country>(entity =>
             {
-                entity.ToTable("Countries").HasPartitionKey(e => e.Id);
+                entity.ToDynamoTable("Countries").HasPartitionKey(e => e.Id);
                 entity.Ignore(e => e.Animals);
                 entity.Ignore(e => e.Plants);
             });
-            modelBuilder.Entity<Plant>().ToTable("Plants").HasPartitionKey(e => e.Species);
-            modelBuilder.Entity<Drink>().ToTable("Drinks").HasPartitionKey(e => e.Id);
+            modelBuilder.Entity<Plant>().ToDynamoTable("Plants").HasPartitionKey(e => e.Species);
+            modelBuilder.Entity<Drink>().ToDynamoTable("Drinks").HasPartitionKey(e => e.Id);
 
             modelBuilder.Entity<Eagle>().Ignore(e => e.Prey);
             modelBuilder.Entity<Bird>().Ignore(e => e.EagleId);

@@ -66,7 +66,7 @@ public sealed class DynamoDecimalTypeTest(
 
             modelBuilder
                 .Entity<TypeEntity<decimal>>()
-                .ToTable("DecimalTypes")
+                .ToDynamoTable("DecimalTypes")
                 .HasPartitionKey(e => e.Id);
         }
     }

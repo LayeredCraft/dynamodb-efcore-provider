@@ -66,7 +66,7 @@ public sealed class DynamoDateTimeTypeTest(
 
             modelBuilder
                 .Entity<TypeEntity<DateTime>>()
-                .ToTable("DateTimeTypes")
+                .ToDynamoTable("DateTimeTypes")
                 .HasPartitionKey(e => e.Id);
         }
     }

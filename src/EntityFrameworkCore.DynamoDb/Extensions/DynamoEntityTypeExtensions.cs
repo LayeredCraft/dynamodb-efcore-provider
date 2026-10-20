@@ -25,7 +25,7 @@ public static class DynamoEntityTypeExtensions
         /// <param name="name">
         ///     The DynamoDB table name. Pass <see langword="null" /> to clear the explicit mapping.
         /// </param>
-        public void SetTableName(string? name)
+        public void SetDynamoTableName(string? name)
             => entityType.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.TableName,
                 name.NullButNotEmpty());
@@ -276,7 +276,7 @@ public static class DynamoEntityTypeExtensions
         ///     <see langword="false" /> for the fluent API.
         /// </param>
         /// <returns>The configured table name, or <see langword="null" /> if configuration was not applied.</returns>
-        public string? SetTableName(string? name, bool fromDataAnnotation = false)
+        public string? SetDynamoTableName(string? name, bool fromDataAnnotation = false)
             => (string?)entityType.SetOrRemoveAnnotation(
                     DynamoAnnotationNames.TableName,
                     name.NullButNotEmpty(),
@@ -285,7 +285,7 @@ public static class DynamoEntityTypeExtensions
 
         /// <summary>Returns the configuration source for the table name annotation.</summary>
         /// <returns>The configuration source, or <see langword="null" /> if no table name is configured.</returns>
-        public ConfigurationSource? GetTableNameConfigurationSource()
+        public ConfigurationSource? GetDynamoTableNameConfigurationSource()
             => entityType.FindAnnotation(DynamoAnnotationNames.TableName)?.GetConfigurationSource();
 
         /// <summary>Gets the convention EF property that maps to the DynamoDB partition key.</summary>

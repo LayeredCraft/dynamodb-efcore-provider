@@ -66,7 +66,7 @@ public sealed class DynamoFloatTypeTest(
 
             modelBuilder
                 .Entity<TypeEntity<float>>()
-                .ToTable("FloatTypes")
+                .ToDynamoTable("FloatTypes")
                 .HasPartitionKey(e => e.Id);
         }
     }

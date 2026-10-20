@@ -411,26 +411,26 @@ public class ToQueryStringTests
         {
             modelBuilder.Entity<ToQueryStringEntity>(builder =>
             {
-                builder.ToTable("ToQueryStringItems");
+                builder.ToDynamoTable("ToQueryStringItems");
                 builder.HasPartitionKey(e => e.Pk);
             });
 
             modelBuilder.Entity<ToQueryStringBinaryEntity>(builder =>
             {
-                builder.ToTable("ToQueryStringBinaryItems");
+                builder.ToDynamoTable("ToQueryStringBinaryItems");
                 builder.HasPartitionKey(e => e.Id);
             });
 
             modelBuilder.Entity<ToQueryStringConvertedBinaryEntity>(builder =>
             {
-                builder.ToTable("ToQueryStringConvertedBinaryItems");
+                builder.ToDynamoTable("ToQueryStringConvertedBinaryItems");
                 builder.HasPartitionKey(e => e.Id);
                 builder.Property(e => e.Id).HasConversion<byte[]>();
             });
 
             modelBuilder.Entity<ToQueryStringEqualsEntity>(builder =>
             {
-                builder.ToTable("ToQueryStringEqualsItems");
+                builder.ToDynamoTable("ToQueryStringEqualsItems");
                 builder.HasPartitionKey(e => e.Pk);
                 builder.Property(e => e.Status).HasConversion<string>();
             });

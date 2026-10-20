@@ -64,7 +64,7 @@ public sealed class DynamoIntTypeTest(
         {
             base.OnModelCreating(modelBuilder, context);
 
-            modelBuilder.Entity<TypeEntity<int>>().ToTable("IntTypes").HasPartitionKey(e => e.Id);
+            modelBuilder.Entity<TypeEntity<int>>().ToDynamoTable("IntTypes").HasPartitionKey(e => e.Id);
         }
     }
 }

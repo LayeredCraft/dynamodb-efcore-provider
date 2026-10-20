@@ -47,7 +47,7 @@ public class PrecompiledParityTests
                               {
                               modelBuilder.Entity<ParityItem>(entity =>
                               {
-                              Microsoft.EntityFrameworkCore.DynamoEntityTypeBuilderExtensions.ToTable(entity, "ParityItems");
+                              Microsoft.EntityFrameworkCore.DynamoEntityTypeBuilderExtensions.ToDynamoTable(entity, "ParityItems");
                               entity.HasPartitionKey(item => item.Pk);
                               Microsoft.EntityFrameworkCore.DynamoEntityTypeBuilderExtensions.HasSortKey(entity, item => item.Sk);
                               entity.Property(item => item.Status).HasConversion<string>();

@@ -64,7 +64,7 @@ public sealed class DynamoByteTypeTest(
         {
             base.OnModelCreating(modelBuilder, context);
 
-            modelBuilder.Entity<TypeEntity<byte>>().ToTable("ByteTypes").HasPartitionKey(e => e.Id);
+            modelBuilder.Entity<TypeEntity<byte>>().ToDynamoTable("ByteTypes").HasPartitionKey(e => e.Id);
         }
     }
 }

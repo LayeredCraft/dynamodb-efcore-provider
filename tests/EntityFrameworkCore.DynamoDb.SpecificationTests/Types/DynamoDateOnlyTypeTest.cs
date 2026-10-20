@@ -66,7 +66,7 @@ public sealed class DynamoDateOnlyTypeTest(
 
             modelBuilder
                 .Entity<TypeEntity<DateOnly>>()
-                .ToTable("DateOnlyTypes")
+                .ToDynamoTable("DateOnlyTypes")
                 .HasPartitionKey(e => e.Id);
         }
     }

@@ -19,14 +19,14 @@ public class SharedTableDbContext(DbContextOptions options) : DbContext(options)
     {
         modelBuilder.Entity<UserEntity>(builder =>
         {
-            builder.ToTable(SharedItemTable.TableName);
+            builder.ToDynamoTable(SharedItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
         });
 
         modelBuilder.Entity<OrderEntity>(builder =>
         {
-            builder.ToTable(SharedItemTable.TableName);
+            builder.ToDynamoTable(SharedItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
         });
@@ -53,14 +53,14 @@ public class SharedTableCustomDiscriminatorNameDbContext(DbContextOptions option
 
         modelBuilder.Entity<UserEntity>(builder =>
         {
-            builder.ToTable(SharedItemTable.TableName);
+            builder.ToDynamoTable(SharedItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
         });
 
         modelBuilder.Entity<OrderEntity>(builder =>
         {
-            builder.ToTable(SharedItemTable.TableName);
+            builder.ToDynamoTable(SharedItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
         });
@@ -82,7 +82,7 @@ public class SharedTableSingleTypeDbContext(DbContextOptions options) : DbContex
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<UserEntity>(builder =>
         {
-            builder.ToTable(SharedItemTable.TableName);
+            builder.ToDynamoTable(SharedItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
         });
@@ -108,7 +108,7 @@ public class SharedTableHasNoDiscriminatorDbContext(DbContextOptions options) : 
     {
         modelBuilder.Entity<UserEntity>(builder =>
         {
-            builder.ToTable(SharedItemTable.TableName);
+            builder.ToDynamoTable(SharedItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
             builder.HasNoDiscriminator();
@@ -116,7 +116,7 @@ public class SharedTableHasNoDiscriminatorDbContext(DbContextOptions options) : 
 
         modelBuilder.Entity<OrderEntity>(builder =>
         {
-            builder.ToTable(SharedItemTable.TableName);
+            builder.ToDynamoTable(SharedItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
         });
@@ -141,28 +141,28 @@ public class SharedTableInheritanceDbContext(DbContextOptions options) : DbConte
     {
         modelBuilder.Entity<PersonEntity>(builder =>
         {
-            builder.ToTable(SharedItemTable.TableName);
+            builder.ToDynamoTable(SharedItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
         });
 
         modelBuilder.Entity<EmployeeEntity>(builder =>
         {
-            builder.ToTable(SharedItemTable.TableName);
+            builder.ToDynamoTable(SharedItemTable.TableName);
             builder.HasBaseType<PersonEntity>();
         });
 
         modelBuilder.Entity<ManagerEntity>(builder =>
         {
-            builder.ToTable(SharedItemTable.TableName);
+            builder.ToDynamoTable(SharedItemTable.TableName);
             builder.HasBaseType<PersonEntity>();
             builder.Property(x => x.Level).HasAttributeName("ManagerLevel");
         });
     }
 }
 
-/// <summary>Context where only the base type calls <c>ToTable</c>; derived types inherit the mapping.</summary>
-public class SharedTableInheritanceBaseOnlyToTableDbContext(DbContextOptions options) : DbContext(
+/// <summary>Context where only the base type calls <c>ToDynamoTable</c>; derived types inherit the mapping.</summary>
+public class SharedTableInheritanceBaseOnlyTableMappingDbContext(DbContextOptions options) : DbContext(
     options)
 {
     public DbSet<PersonEntity> People => Set<PersonEntity>();
@@ -170,9 +170,9 @@ public class SharedTableInheritanceBaseOnlyToTableDbContext(DbContextOptions opt
     public DbSet<ManagerEntity> Managers => Set<ManagerEntity>();
 
     /// <summary>Creates a context configured to use the provided DynamoDB client instance.</summary>
-    public static SharedTableInheritanceBaseOnlyToTableDbContext Create(IAmazonDynamoDB client)
+    public static SharedTableInheritanceBaseOnlyTableMappingDbContext Create(IAmazonDynamoDB client)
         => new(
-            new DbContextOptionsBuilder<SharedTableInheritanceBaseOnlyToTableDbContext>()
+            new DbContextOptionsBuilder<SharedTableInheritanceBaseOnlyTableMappingDbContext>()
                 .UseDynamo(o => o.DynamoDbClient(client))
                 .Options);
 
@@ -180,7 +180,7 @@ public class SharedTableInheritanceBaseOnlyToTableDbContext(DbContextOptions opt
     {
         modelBuilder.Entity<PersonEntity>(builder =>
         {
-            builder.ToTable(SharedItemTable.TableName);
+            builder.ToDynamoTable(SharedItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
         });
@@ -212,7 +212,7 @@ public class SharedTableInheritanceWithIndexesDbContext(DbContextOptions options
     {
         modelBuilder.Entity<WorkOrderEntity>(builder =>
         {
-            builder.ToTable(SharedItemTable.TableName);
+            builder.ToDynamoTable(SharedItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
             builder.HasLocalSecondaryIndex("ByStatus", x => x.Status);
@@ -220,14 +220,14 @@ public class SharedTableInheritanceWithIndexesDbContext(DbContextOptions options
 
         modelBuilder.Entity<PriorityWorkOrderEntity>(builder =>
         {
-            builder.ToTable(SharedItemTable.TableName);
+            builder.ToDynamoTable(SharedItemTable.TableName);
             builder.HasBaseType<WorkOrderEntity>();
             builder.HasGlobalSecondaryIndex("ByPriority", x => x.Priority);
         });
 
         modelBuilder.Entity<ArchivedWorkOrderEntity>(builder =>
         {
-            builder.ToTable(SharedItemTable.TableName);
+            builder.ToDynamoTable(SharedItemTable.TableName);
             builder.HasBaseType<WorkOrderEntity>();
         });
     }

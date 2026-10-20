@@ -144,7 +144,7 @@ public class DynamoCreateValueReaderTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ReaderEntity>(builder =>
             {
-                builder.ToTable("ReaderItems");
+                builder.ToDynamoTable("ReaderItems");
                 builder.HasPartitionKey(x => x.Pk);
                 builder.Property(x => x.NullableStatus).HasConversion<string>();
                 builder.Property(x => x.Status).HasConversion<string>();

@@ -581,7 +581,7 @@ public class DynamoEntityItemSerializerSourceTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ShadowKeyEntity>(b =>
             {
-                b.ToTable("ShadowKeyItems");
+                b.ToDynamoTable("ShadowKeyItems");
                 b.Property<string>("PK").HasAttributeName("PK");
                 b.Property<string>("SK").HasAttributeName("SK");
                 b.HasKey("PK", "SK");
@@ -596,7 +596,7 @@ public class DynamoEntityItemSerializerSourceTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<Gadget>(b =>
             {
-                b.ToTable("Bad\"TableName");
+                b.ToDynamoTable("Bad\"TableName");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
             });
@@ -609,7 +609,7 @@ public class DynamoEntityItemSerializerSourceTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ConvertedEnumEntity>(b =>
             {
-                b.ToTable("ConvertedEnums");
+                b.ToDynamoTable("ConvertedEnums");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
                 b.Property(x => x.Status).HasAttributeName("status").HasConversion<string>();
@@ -627,7 +627,7 @@ public class DynamoEntityItemSerializerSourceTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<NullableCollectionEntity>(b =>
             {
-                b.ToTable("NullableCollections");
+                b.ToDynamoTable("NullableCollections");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
                 b.Property(x => x.NullableStatuses);
@@ -644,7 +644,7 @@ public class DynamoEntityItemSerializerSourceTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ComplexCollectionEntity>(b =>
             {
-                b.ToTable("ComplexCollections");
+                b.ToDynamoTable("ComplexCollections");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
                 b.ComplexCollection(x => x.Contacts);
@@ -659,7 +659,7 @@ public class DynamoEntityItemSerializerSourceTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ComplexScalarCollectionEntity>(b =>
             {
-                b.ToTable("ComplexScalarCollections");
+                b.ToDynamoTable("ComplexScalarCollections");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
                 b.ComplexProperty(

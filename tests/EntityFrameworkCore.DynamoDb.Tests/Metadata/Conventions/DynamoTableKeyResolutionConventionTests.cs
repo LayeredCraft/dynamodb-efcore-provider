@@ -41,7 +41,7 @@ public class DynamoTableKeyResolutionConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<AnnotationOnlyPkEntity>(b =>
             {
-                b.ToTable("AnnotationOnlyPkTable");
+                b.ToDynamoTable("AnnotationOnlyPkTable");
                 b.HasPartitionKey(x => x.CustomPk);
                 // No b.HasKey(...) call
             });
@@ -83,7 +83,7 @@ public class DynamoTableKeyResolutionConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<AnnotationPkSkEntity>(b =>
             {
-                b.ToTable("AnnotationPkSkTable");
+                b.ToDynamoTable("AnnotationPkSkTable");
                 b.HasPartitionKey(x => x.CustomPk);
                 b.HasSortKey(x => x.CustomSk);
                 // No b.HasKey(...) call
@@ -123,7 +123,7 @@ public class DynamoTableKeyResolutionConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<LateShadowKeyEntity>(b =>
             {
-                ((EntityTypeBuilder)b).ToTable("LateShadowKeyTable");
+                b.ToDynamoTable("LateShadowKeyTable");
                 b.HasPartitionKey("PK");
                 b.HasSortKey("SK");
                 b.Property<string>("PK");
@@ -165,7 +165,7 @@ public class DynamoTableKeyResolutionConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SortKeyWithAutoDiscoveredPkEntity>(b =>
             {
-                ((EntityTypeBuilder)b).ToTable("AutoDiscoveredPkTable");
+                b.ToDynamoTable("AutoDiscoveredPkTable");
                 b.HasSortKey(x => x.Category);
                 // No HasKey, no HasPartitionKey, no conventional partition key name
             });
@@ -207,7 +207,7 @@ public class DynamoTableKeyResolutionConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RedundantAnnotationEntity>(b =>
             {
-                ((EntityTypeBuilder)b).ToTable("RedundantAnnotationTable");
+                b.ToDynamoTable("RedundantAnnotationTable");
                 b.HasPartitionKey(x => x.Id);
                 // EF would have auto-discovered 'Id' anyway
             });
@@ -248,7 +248,7 @@ public class DynamoTableKeyResolutionConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitKeyEntity>(b =>
             {
-                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "ExplicitKeyTable");
+                b.ToDynamoTable("ExplicitKeyTable");
                 b.HasKey(x => new { x.PkProp, x.SkProp });
                 b.HasPartitionKey(x => x.PkProp);
                 b.HasSortKey(x => x.SkProp);
@@ -293,7 +293,7 @@ public class DynamoTableKeyResolutionConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerWithAnnotationEntity>(b =>
             {
-                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "OwnedPartTable");
+                b.ToDynamoTable("OwnedPartTable");
                 b.HasPartitionKey(x => x.Id);
                 b.ComplexProperty(x => x.Detail);
             });

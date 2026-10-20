@@ -42,7 +42,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PkNamedEntity>(b =>
             {
-                b.ToTable("PkNamedTable");
+                b.ToDynamoTable("PkNamedTable");
                 // No HasPartitionKey, no HasKey — convention should do all the work
             });
 
@@ -83,7 +83,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PartitionKeyNamedEntity>(b =>
             {
-                b.ToTable("PartitionKeyNamedTable");
+                b.ToDynamoTable("PartitionKeyNamedTable");
             });
 
         public static PartitionKeyNamedContext Create(IAmazonDynamoDB client)
@@ -121,7 +121,7 @@ public class DynamoConventionalKeyPropertiesTests
         public DbSet<IdNamedEntity> Entities { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<IdNamedEntity>(b => b.ToTable("IdNamedTable"));
+            => modelBuilder.Entity<IdNamedEntity>(b => b.ToDynamoTable("IdNamedTable"));
 
         public static IdNamedContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<IdNamedContext>(client));
@@ -158,7 +158,7 @@ public class DynamoConventionalKeyPropertiesTests
         public DbSet<UpperIdNamedEntity> Entities { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<UpperIdNamedEntity>(b => b.ToTable("UpperIdNamedTable"));
+            => modelBuilder.Entity<UpperIdNamedEntity>(b => b.ToDynamoTable("UpperIdNamedTable"));
 
         public static UpperIdNamedContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<UpperIdNamedContext>(client));
@@ -197,7 +197,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ShadowPkWithIdEntity>(b =>
             {
-                b.ToTable("ShadowPkWithIdTable");
+                b.ToDynamoTable("ShadowPkWithIdTable");
                 b.Property<string>("PK");
             });
 
@@ -236,7 +236,7 @@ public class DynamoConventionalKeyPropertiesTests
         public DbSet<IdSkNamedEntity> Entities { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<IdSkNamedEntity>(b => b.ToTable("IdSkNamedTable"));
+            => modelBuilder.Entity<IdSkNamedEntity>(b => b.ToDynamoTable("IdSkNamedTable"));
 
         public static IdSkNamedContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<IdSkNamedContext>(client));
@@ -276,7 +276,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitKeyWithIdEntity>(b =>
             {
-                b.ToTable("ExplicitKeyWithIdTable");
+                b.ToDynamoTable("ExplicitKeyWithIdTable");
                 b.HasPartitionKey(x => x.CustomKey);
             });
 
@@ -316,7 +316,7 @@ public class DynamoConventionalKeyPropertiesTests
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PartitionKeyAndIdNamedEntity>(b
-                => b.ToTable("PartitionKeyAndIdNamedTable"));
+                => b.ToDynamoTable("PartitionKeyAndIdNamedTable"));
 
         public static PartitionKeyAndIdNamedContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<PartitionKeyAndIdNamedContext>(client));
@@ -352,7 +352,7 @@ public class DynamoConventionalKeyPropertiesTests
         public DbSet<PkAndIdNamedEntity> Entities { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<PkAndIdNamedEntity>(b => b.ToTable("PkAndIdNamedTable"));
+            => modelBuilder.Entity<PkAndIdNamedEntity>(b => b.ToDynamoTable("PkAndIdNamedTable"));
 
         public static PkAndIdNamedContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<PkAndIdNamedContext>(client));
@@ -390,7 +390,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PkSkNamedEntity>(b =>
             {
-                b.ToTable("PkSkNamedTable");
+                b.ToDynamoTable("PkSkNamedTable");
             });
 
         public static PkSkNamedContext Create(IAmazonDynamoDB client)
@@ -431,7 +431,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PartitionSortKeyNamedEntity>(b =>
             {
-                b.ToTable("PartitionSortKeyNamedTable");
+                b.ToDynamoTable("PartitionSortKeyNamedTable");
             });
 
         public static PartitionSortKeyNamedContext Create(IAmazonDynamoDB client)
@@ -474,7 +474,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitOverrideEntity>(b =>
             {
-                b.ToTable("ExplicitOverrideTable");
+                b.ToDynamoTable("ExplicitOverrideTable");
                 // Explicit fluent API call (Explicit source) overrides the convention (Convention
                 // source)
                 b.HasPartitionKey(x => x.CustomKey);
@@ -519,7 +519,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitSkOverrideEntity>(b =>
             {
-                b.ToTable("ExplicitSkOverrideTable");
+                b.ToDynamoTable("ExplicitSkOverrideTable");
                 // Explicit HasSortKey points to CustomSort rather than the conventionally-named SK
                 b.HasPartitionKey(x => x.PK);
                 b.HasSortKey(x => x.CustomSort);
@@ -564,7 +564,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ConventionalPkExplicitSortEntity>(b =>
             {
-                b.ToTable("ConventionalPkExplicitSortTable");
+                b.ToDynamoTable("ConventionalPkExplicitSortTable");
                 b.HasSortKey(x => x.CustomSort);
             });
 
@@ -609,7 +609,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitPartitionConventionalSkEntity>(b =>
             {
-                b.ToTable("ExplicitPartitionConventionalSkTable");
+                b.ToDynamoTable("ExplicitPartitionConventionalSkTable");
                 b.HasPartitionKey(x => x.CustomPartition);
             });
 
@@ -656,7 +656,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitPartitionAmbiguousSortEntity>(b =>
             {
-                b.ToTable("ExplicitPartitionAmbiguousSortTable");
+                b.ToDynamoTable("ExplicitPartitionAmbiguousSortTable");
                 b.HasPartitionKey(x => x.CustomPartition);
             });
 
@@ -703,7 +703,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<WrongCaseEntity>(b =>
             {
-                b.ToTable("WrongCaseTable");
+                b.ToDynamoTable("WrongCaseTable");
             });
 
         public static WrongCaseContext Create(IAmazonDynamoDB client)
@@ -753,7 +753,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerEntity>(b =>
             {
-                b.ToTable("ComplexConventionTable");
+                b.ToDynamoTable("ComplexConventionTable");
                 b.ComplexProperty(x => x.Detail);
             });
 
@@ -813,7 +813,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<AmbiguousPkEntity>(b =>
             {
-                b.ToTable("AmbiguousPkTable");
+                b.ToDynamoTable("AmbiguousPkTable");
                 // No HasPartitionKey — convention sees both 'PK' and 'PartitionKey'
             });
 
@@ -853,7 +853,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<AmbiguousSkEntity>(b =>
             {
-                b.ToTable("AmbiguousSkTable");
+                b.ToDynamoTable("AmbiguousSkTable");
                 // No HasSortKey — convention sees both 'SK' and 'SortKey'
             });
 
@@ -893,7 +893,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ResolvedAmbiguityEntity>(b =>
             {
-                b.ToTable("ResolvedAmbiguityTable");
+                b.ToDynamoTable("ResolvedAmbiguityTable");
                 // Explicit call at Explicit source resolves the PK ambiguity
                 b.HasPartitionKey(x => x.PK);
                 b.HasSortKey(x => x.SK);
@@ -929,7 +929,7 @@ public class DynamoConventionalKeyPropertiesTests
         public DbSet<EntityNameIdOnlyEntity> Entities { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<EntityNameIdOnlyEntity>(b => b.ToTable("EntityNameIdOnlyTable"));
+            => modelBuilder.Entity<EntityNameIdOnlyEntity>(b => b.ToDynamoTable("EntityNameIdOnlyTable"));
 
         public static EntityNameIdOnlyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<EntityNameIdOnlyContext>(client));
@@ -966,7 +966,7 @@ public class DynamoConventionalKeyPropertiesTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitHasKeyResolvesAmbiguousPkEntity>(b =>
             {
-                b.ToTable("ExplicitHasKeyResolvesAmbiguousPkTable");
+                b.ToDynamoTable("ExplicitHasKeyResolvesAmbiguousPkTable");
                 b.HasKey(x => x.CustomId);
             });
 

@@ -127,26 +127,26 @@ public class PartitionKeyInTypeTests
         {
             modelBuilder.Entity<NumericItem>(b =>
             {
-                b.ToTable("NumericPkItems");
+                b.ToDynamoTable("NumericPkItems");
                 b.HasPartitionKey(e => e.Id);
             });
 
             modelBuilder.Entity<BinaryItem>(b =>
             {
-                b.ToTable("BinaryPkItems");
+                b.ToDynamoTable("BinaryPkItems");
                 b.HasPartitionKey(e => e.Id);
             });
 
             modelBuilder.Entity<ConvertedStringItem>(b =>
             {
-                b.ToTable("ConvertedStringPkItems");
+                b.ToDynamoTable("ConvertedStringPkItems");
                 b.HasPartitionKey(e => e.Id);
                 b.Property(e => e.Id).HasConversion<string>();
             });
 
             modelBuilder.Entity<ConvertedNumberItem>(b =>
             {
-                b.ToTable("ConvertedNumberPkItems");
+                b.ToDynamoTable("ConvertedNumberPkItems");
                 b.HasPartitionKey(e => e.Id);
                 b.Property(e => e.Id).HasConversion(v => v.Value, v => new NumericKey(v));
             });

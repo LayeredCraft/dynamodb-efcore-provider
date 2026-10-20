@@ -307,7 +307,7 @@ property names differ:
 ```csharp
 modelBuilder.Entity<Order>(b =>
 {
-    b.ToTable("AppTable");
+    b.ToDynamoTable("AppTable");
     b.Property(e => e.TenantId).HasAttributeName("PK");
     b.Property(e => e.OrderId).HasAttributeName("SK");
     b.HasPartitionKey(e => e.TenantId);
@@ -316,7 +316,7 @@ modelBuilder.Entity<Order>(b =>
 
 modelBuilder.Entity<User>(b =>
 {
-    b.ToTable("AppTable");
+    b.ToDynamoTable("AppTable");
     b.Property(e => e.AccountId).HasAttributeName("PK");
     b.Property(e => e.UserId).HasAttributeName("SK");
     b.HasPartitionKey(e => e.AccountId);
@@ -329,7 +329,7 @@ Shared-table mappings are invalid when any root type uses a different physical k
 ```csharp
 modelBuilder.Entity<Order>(b =>
 {
-    b.ToTable("AppTable");
+    b.ToDynamoTable("AppTable");
     b.Property(e => e.TenantId).HasAttributeName("PK");
     b.Property(e => e.OrderId).HasAttributeName("SK");
     b.HasPartitionKey(e => e.TenantId);
@@ -338,7 +338,7 @@ modelBuilder.Entity<Order>(b =>
 
 modelBuilder.Entity<User>(b =>
 {
-    b.ToTable("AppTable");
+    b.ToDynamoTable("AppTable");
     b.Property(e => e.AccountId).HasAttributeName("AccountId");
     b.HasPartitionKey(e => e.AccountId);
 });

@@ -16,7 +16,7 @@ keys. See [Complex Properties and Collections](../modeling/complex-types.md).
 
 For root entity types, table and key mapping resolves in this order (highest precedence first):
 
-1. Explicit provider configuration (`ToTable(...)`, `HasPartitionKey(...)`, `HasSortKey(...)`)
+1. Explicit provider configuration (`ToDynamoTable(...)`, `HasPartitionKey(...)`, `HasSortKey(...)`)
 2. EF key configuration (`HasKey(...)`, `[Key]`, `[PrimaryKey]`)
 3. Conventions:
     - Table name: CLR type name
@@ -34,32 +34,38 @@ Provider key APIs remain preferred because they name DynamoDB roles directly. EF
 
 ## Mapping to a Table
 
-Use `ToTable` inside `OnModelCreating` to specify which DynamoDB table an entity type maps to:
+Use `ToDynamoTable` inside `OnModelCreating` to specify which DynamoDB table an entity type maps to:
 
 ```csharp
 modelBuilder.Entity<Order>(b =>
 {
-    b.ToTable("Orders");
+    b.ToDynamoTable("Orders");
     b.HasPartitionKey(x => x.CustomerId);
 });
 ```
 
-`ToTable(...)` is an explicit override of the default table-name convention.
+`ToDynamoTable(...)` is an explicit override of the default table-name convention. It is named
+`ToDynamoTable` rather than `ToTable` so it stays unambiguous when EF Core Relational's `ToTable`
+extension is also in scope, for example through `Microsoft.EntityFrameworkCore.Design` or the EF
+Core health-check package. Earlier provider versions exposed `ToTable`; replace those calls with
+`ToDynamoTable`. Do not leave a bare `ToTable(...)` call: when Relational's extension is in scope,
+it binds silently to the relational mapping, and the provider falls back to the CLR type name.
 
 The table must already exist — the provider does not create or migrate DynamoDB tables.
 
-If no explicit `ToTable(...)` mapping is configured, the provider uses the CLR type name (for example,
-`Order` -> `"Order"`).
+If no explicit `ToDynamoTable(...)` mapping is configured, the provider uses the CLR type name (for
+example, `Order` -> `"Order"`).
 
 If you need to clear a previously configured table name, call:
 
 ```csharp
-b.ToTable(null);
+b.ToDynamoTable(null);
 ```
 
-`ToTable(...)` is the physical DynamoDB table name, and this is the normal way to configure it. Only if
-you use a compiled model or NativeAOT **and** the physical name differs between environments do you
-need anything more; see the advanced [Runtime Resource Names](runtime-resource-names.md) facility.
+`ToDynamoTable(...)` is the physical DynamoDB table name, and this is the normal way to configure
+it. Only if you use a compiled model or NativeAOT **and** the physical name differs between
+environments do you need anything more; see the advanced
+[Runtime Resource Names](runtime-resource-names.md) facility.
 
 ## Partition Key
 

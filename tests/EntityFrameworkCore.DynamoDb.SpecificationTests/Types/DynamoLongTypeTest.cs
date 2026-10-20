@@ -64,7 +64,7 @@ public sealed class DynamoLongTypeTest(
         {
             base.OnModelCreating(modelBuilder, context);
 
-            modelBuilder.Entity<TypeEntity<long>>().ToTable("LongTypes").HasPartitionKey(e => e.Id);
+            modelBuilder.Entity<TypeEntity<long>>().ToDynamoTable("LongTypes").HasPartitionKey(e => e.Id);
         }
     }
 }

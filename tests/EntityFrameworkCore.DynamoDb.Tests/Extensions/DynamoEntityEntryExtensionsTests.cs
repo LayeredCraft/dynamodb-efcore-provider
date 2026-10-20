@@ -55,7 +55,7 @@ public class DynamoEntityEntryExtensionsTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RootEntity>(b =>
             {
-                b.ToTable("TestTable");
+                b.ToDynamoTable("TestTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.ComplexProperty(x => x.Address);
             });

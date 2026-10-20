@@ -3,12 +3,10 @@ tag-template: 'v$RESOLVED_VERSION'
 commitish: main
 
 version-resolver:
-  major:
-    labels:
-      - 'breaking-change'
   minor:
     labels:
       - 'type: feat'
+      - 'breaking-change'
   patch:
     labels:
       - 'type: fix'

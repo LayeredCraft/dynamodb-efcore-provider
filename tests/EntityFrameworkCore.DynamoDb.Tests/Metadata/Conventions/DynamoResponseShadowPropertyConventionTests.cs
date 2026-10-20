@@ -37,7 +37,7 @@ public class DynamoResponseShadowPropertyConventionTests
         public DbSet<RootEntity> Entities { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<RootEntity>(b => b.ToTable("RootTable"));
+            => modelBuilder.Entity<RootEntity>(b => b.ToDynamoTable("RootTable"));
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -77,7 +77,7 @@ public class DynamoResponseShadowPropertyConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OrderEntity>(b =>
             {
-                b.ToTable("Orders");
+                b.ToDynamoTable("Orders");
                 b.ComplexProperty(o => o.ShippingAddress);
             });
     }
@@ -116,7 +116,7 @@ public class DynamoResponseShadowPropertyConventionTests
         public DbSet<Dog> Dogs { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<AnimalBase>(b => b.ToTable("Animals"));
+            => modelBuilder.Entity<AnimalBase>(b => b.ToDynamoTable("Animals"));
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]

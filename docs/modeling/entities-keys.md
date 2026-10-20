@@ -17,7 +17,7 @@ navigation relationships between them.
 ```csharp
 modelBuilder.Entity<Order>(b =>
 {
-    b.ToTable("Orders");
+    b.ToDynamoTable("Orders");
     b.HasPartitionKey(x => x.CustomerId);
     b.HasSortKey(x => x.OrderId); // optional
 });
@@ -27,7 +27,7 @@ modelBuilder.Entity<Order>(b =>
 
     `HasPartitionKey(...)` and `HasSortKey(...)` name DynamoDB roles directly and are preferred in docs. EF-native `HasKey(...)` and `[PrimaryKey]` are also supported for one- and two-part table keys; property-level `[Key]` supports a single-property partition key.
 
-If no explicit `ToTable(...)` is configured, the provider uses the CLR type name as the table
+If no explicit `ToDynamoTable(...)` is configured, the provider uses the CLR type name as the table
 name.
 
 !!! warning "No EF relationships"
@@ -41,7 +41,7 @@ name.
 
 For root entity types, table/key mapping resolves in this order (highest precedence first):
 
-1. Explicit provider configuration (`ToTable(...)`, `HasPartitionKey(...)`, `HasSortKey(...)`)
+1. Explicit provider configuration (`ToDynamoTable(...)`, `HasPartitionKey(...)`, `HasSortKey(...)`)
 2. EF key configuration (`HasKey(...)`, `[Key]`, `[PrimaryKey]`)
 3. Conventions (`PK`/`PartitionKey`, fallback `Id`/`{EntityName}Id`, `SK`/`SortKey`; table name from CLR type)
 4. Validation outcome (missing partition key throws; partition key resolved with no sort key
@@ -148,7 +148,7 @@ Explicit composite-key mapping:
 ```csharp
 modelBuilder.Entity<Order>(b =>
 {
-    b.ToTable("Orders");
+    b.ToDynamoTable("Orders");
     b.HasPartitionKey(x => x.CustomerId);
     b.HasSortKey(x => x.OrderId);
 });

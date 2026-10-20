@@ -216,7 +216,7 @@ public sealed class CollisionContext(DbContextOptions<CollisionContext> options)
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<CollisionRow>(entity =>
         {
-            entity.ToTable("collision-table").HasLogicalTableName("Collide");
+            entity.ToDynamoTable("collision-table").HasLogicalTableName("Collide");
             entity.HasPartitionKey(row => row.Pk);
             entity.HasGlobalSecondaryIndex("ByA", nameof(CollisionRow.A)).HasSecondaryIndexName("a-gsi");
             entity.HasGlobalSecondaryIndex("ByA2", nameof(CollisionRow.A)).HasSecondaryIndexName("a2-gsi");
@@ -241,7 +241,7 @@ public sealed class SharedSameNameContext(DbContextOptions<SharedSameNameContext
     {
         modelBuilder.Entity<OwnerRowOne>(entity =>
         {
-            entity.ToTable("shared-owner-table").HasLogicalTableName("SharedOwner");
+            entity.ToDynamoTable("shared-owner-table").HasLogicalTableName("SharedOwner");
             entity.HasPartitionKey(row => row.Pk);
             entity
                 .HasGlobalSecondaryIndex("ByOwner", nameof(OwnerRowOne.Owner))
@@ -249,7 +249,7 @@ public sealed class SharedSameNameContext(DbContextOptions<SharedSameNameContext
         });
         modelBuilder.Entity<OwnerRowTwo>(entity =>
         {
-            entity.ToTable("shared-owner-table");
+            entity.ToDynamoTable("shared-owner-table");
             entity.HasPartitionKey(row => row.Pk);
             entity
                 .HasGlobalSecondaryIndex("ByOwner", nameof(OwnerRowTwo.Owner))
@@ -268,7 +268,7 @@ public sealed class SharedDifferentNamesContext(DbContextOptions<SharedDifferent
     {
         modelBuilder.Entity<OwnerRowOne>(entity =>
         {
-            entity.ToTable("shared-owner-table").HasLogicalTableName("SharedOwner");
+            entity.ToDynamoTable("shared-owner-table").HasLogicalTableName("SharedOwner");
             entity.HasPartitionKey(row => row.Pk);
             entity
                 .HasGlobalSecondaryIndex("ByOwner", nameof(OwnerRowOne.Owner))
@@ -276,7 +276,7 @@ public sealed class SharedDifferentNamesContext(DbContextOptions<SharedDifferent
         });
         modelBuilder.Entity<OwnerRowTwo>(entity =>
         {
-            entity.ToTable("shared-owner-table");
+            entity.ToDynamoTable("shared-owner-table");
             entity.HasPartitionKey(row => row.Pk);
             entity
                 .HasGlobalSecondaryIndex("OwnerIdx", nameof(OwnerRowTwo.Owner))
@@ -307,28 +307,28 @@ public sealed class GetterContext(DbContextOptions<GetterContext> options) : DbC
         // Two roots share a table; only one declares the logical identity.
         modelBuilder.Entity<GetterRootA>(entity =>
         {
-            entity.ToTable("shared-getter").HasLogicalTableName("SharedGetter");
+            entity.ToDynamoTable("shared-getter").HasLogicalTableName("SharedGetter");
             entity.HasPartitionKey(row => row.Pk);
         });
         modelBuilder.Entity<GetterRootB>(entity =>
         {
-            entity.ToTable("shared-getter");
+            entity.ToDynamoTable("shared-getter");
             entity.HasPartitionKey(row => row.Pk);
         });
 
         // A hierarchy: one derived type shares the base table, another is mapped elsewhere.
         modelBuilder.Entity<GetterBase>(entity =>
         {
-            entity.ToTable("base-table").HasLogicalTableName("BaseLogical");
+            entity.ToDynamoTable("base-table").HasLogicalTableName("BaseLogical");
             entity.HasPartitionKey(row => row.Pk);
         });
         modelBuilder.Entity<GetterDerived>();
-        modelBuilder.Entity<GetterDerivedElsewhere>(entity => entity.ToTable("elsewhere-table"));
+        modelBuilder.Entity<GetterDerivedElsewhere>(entity => entity.ToDynamoTable("elsewhere-table"));
 
         // A table with no logical identity.
         modelBuilder.Entity<GetterPlain>(entity =>
         {
-            entity.ToTable("plain-table");
+            entity.ToDynamoTable("plain-table");
             entity.HasPartitionKey(row => row.Pk);
         });
     }

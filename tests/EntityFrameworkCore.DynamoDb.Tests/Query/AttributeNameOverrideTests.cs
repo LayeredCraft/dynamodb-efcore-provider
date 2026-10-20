@@ -178,7 +178,7 @@ public class AttributeNameOverrideTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RenameEntity>(b =>
             {
-                b.ToTable("RenameTestTable");
+                b.ToDynamoTable("RenameTestTable");
                 b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.FullName).HasAttributeName("display_name");
             });

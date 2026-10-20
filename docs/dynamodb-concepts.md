@@ -79,14 +79,14 @@ each entity exposes through its C# properties; DynamoDB simply stores whatever y
 // Customer and Order can share one table — each has its own attribute shape
 modelBuilder.Entity<Customer>(b =>
 {
-    b.ToTable("ShopData");
+    b.ToDynamoTable("ShopData");
     b.HasPartitionKey(c => c.CustomerId);
     b.HasSortKey(c => c.EntityType); // value: "CUSTOMER"
 });
 
 modelBuilder.Entity<Order>(b =>
 {
-    b.ToTable("ShopData");
+    b.ToDynamoTable("ShopData");
     b.HasPartitionKey(o => o.CustomerId);
     b.HasSortKey(o => o.SortKey); // value: "ORDER#<date>"
 });
@@ -220,14 +220,14 @@ attribute.
 ```csharp
 modelBuilder.Entity<Customer>(b =>
 {
-    b.ToTable("ShopData");
+    b.ToDynamoTable("ShopData");
     b.HasPartitionKey(c => c.PK); // e.g. "cust-42"
     b.HasSortKey(c => c.SK);      // always "CUSTOMER"
 });
 
 modelBuilder.Entity<Order>(b =>
 {
-    b.ToTable("ShopData");
+    b.ToDynamoTable("ShopData");
     b.HasPartitionKey(o => o.PK); // e.g. "cust-42" — same partition as the customer
     b.HasSortKey(o => o.SK);      // e.g. "ORDER#2024-01-15"
 });
@@ -235,7 +235,8 @@ modelBuilder.Entity<Order>(b =>
 
 !!! tip "Single-table design with this provider"
 
-    Map multiple entity types to the same table name using `b.ToTable("ShopData")` on each entity.
+    Map multiple entity types to the same table name using `b.ToDynamoTable("ShopData")` on each
+    entity.
     Give each type a sort key whose value includes a distinguishing prefix. The provider routes
     reads and writes to the correct entity type based on the EF model; DynamoDB handles the storage.
 

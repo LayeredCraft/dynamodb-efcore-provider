@@ -18,7 +18,7 @@ public sealed class CompetingGsiDbContext(DbContextOptions options) : DbContext(
         var entity = modelBuilder.Entity<OrderItem>();
 
         entity
-            .ToTable(CompetingGsiOrdersTable.TableName)
+            .ToDynamoTable(CompetingGsiOrdersTable.TableName)
             .HasPartitionKey(x => x.CustomerId)
             .HasSortKey(x => x.OrderId);
 

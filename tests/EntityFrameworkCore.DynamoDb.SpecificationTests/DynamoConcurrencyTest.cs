@@ -206,7 +206,7 @@ public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrenc
         {
             builder.Entity<Customer>(b =>
             {
-                b.ToTable(DatabaseName);
+                b.ToDynamoTable(DatabaseName);
                 b.HasPartitionKey(c => c.Id);
                 b.Property(c => c.Version).IsConcurrencyToken();
             });

@@ -440,7 +440,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IntKeyEntity>(entity =>
             {
-                entity.ToTable(TableName);
+                entity.ToDynamoTable(TableName);
                 entity.Property(x => x.Id).HasAttributeName("id");
                 entity.Property(x => x.Name).HasAttributeName("name");
                 entity.HasPartitionKey(x => x.Id);
@@ -481,7 +481,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<StringKeyEntity>(entity =>
             {
-                entity.ToTable(TableName);
+                entity.ToDynamoTable(TableName);
                 entity.Property(x => x.Id).HasAttributeName("id");
                 entity.Property(x => x.Name).HasAttributeName("name");
                 entity.HasPartitionKey(x => x.Id);
@@ -501,7 +501,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<BinaryKeyEntity>(entity =>
             {
-                entity.ToTable(TableName);
+                entity.ToDynamoTable(TableName);
                 entity.Property(x => x.Id).HasAttributeName("id");
                 entity.Property(x => x.Name).HasAttributeName("name");
                 entity.HasPartitionKey(x => x.Id);
@@ -521,7 +521,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IntKeyEntity>(entity =>
             {
-                entity.ToTable(TableName);
+                entity.ToDynamoTable(TableName);
                 entity
                     .Property(x => x.Id)
                     .HasAttributeName("id")
@@ -552,7 +552,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GuidKeyEntity>(entity =>
             {
-                entity.ToTable(TableName);
+                entity.ToDynamoTable(TableName);
                 entity.Property(x => x.Id).HasAttributeName("id");
                 entity.Property(x => x.Name).HasAttributeName("name");
                 entity.HasPartitionKey(x => x.Id);
@@ -572,7 +572,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GuidKeyEntity>(entity =>
             {
-                entity.ToTable(TableName);
+                entity.ToDynamoTable(TableName);
                 entity.Property(x => x.Id).HasAttributeName("id").ValueGeneratedNever();
                 entity.Property(x => x.Name).HasAttributeName("name");
                 entity.HasPartitionKey(x => x.Id);
@@ -601,7 +601,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<CompositeKeyEntity>(entity =>
             {
-                entity.ToTable(TableName);
+                entity.ToDynamoTable(TableName);
                 entity.Property(x => x.Pk).HasAttributeName("pk");
                 entity.Property(x => x.Sk).HasAttributeName("sk");
                 entity.Property(x => x.Name).HasAttributeName("name");
@@ -632,7 +632,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<CompositeGuidKeyEntity>(entity =>
             {
-                entity.ToTable(TableName);
+                entity.ToDynamoTable(TableName);
                 entity.Property(x => x.Id).HasAttributeName("id");
                 entity.Property(x => x.Sk).HasAttributeName("sk");
                 entity.Property(x => x.Name).HasAttributeName("name");

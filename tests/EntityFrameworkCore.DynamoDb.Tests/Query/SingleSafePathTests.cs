@@ -572,7 +572,7 @@ public class SingleSafePathTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PkSkItem>(b =>
             {
-                b.ToTable("PkSkTable");
+                b.ToDynamoTable("PkSkTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
             });
@@ -607,7 +607,7 @@ public class SingleSafePathTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GsiItem>(b =>
             {
-                b.ToTable("GsiTable");
+                b.ToDynamoTable("GsiTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
                 b.HasGlobalSecondaryIndex("ByPriorityStatus", x => x.Priority, x => x.Status);
@@ -632,7 +632,7 @@ public class SingleSafePathTests
         {
             modelBuilder.Entity<BaseItem>(b =>
             {
-                b.ToTable("InheritanceTable");
+                b.ToDynamoTable("InheritanceTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
             });

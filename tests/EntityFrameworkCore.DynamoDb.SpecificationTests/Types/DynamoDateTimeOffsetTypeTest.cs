@@ -69,7 +69,7 @@ public sealed class DynamoDateTimeOffsetTypeTest(
 
             modelBuilder
                 .Entity<TypeEntity<DateTimeOffset>>()
-                .ToTable("DateTimeOffsetTypes")
+                .ToDynamoTable("DateTimeOffsetTypes")
                 .HasPartitionKey(e => e.Id);
         }
     }

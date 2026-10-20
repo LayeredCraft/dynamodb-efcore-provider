@@ -33,7 +33,7 @@ public class DynamoEntityKeyMappingConventionTests
     private sealed class ConventionalKeyContext(DbContextOptions options) : DbContext(options)
     {
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<ConventionalKeyEntity>(b => b.ToTable("ConventionalKeyTable"));
+            => modelBuilder.Entity<ConventionalKeyEntity>(b => b.ToDynamoTable("ConventionalKeyTable"));
 
         public static ConventionalKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ConventionalKeyContext>(client));
@@ -65,7 +65,7 @@ public class DynamoEntityKeyMappingConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitKeyOnlyEntity>(b =>
             {
-                b.ToTable("ExplicitKeyOnlyTable");
+                b.ToDynamoTable("ExplicitKeyOnlyTable");
                 b.HasKey(x => new { x.TenantId, x.OrderId });
             });
 
@@ -102,7 +102,7 @@ public class DynamoEntityKeyMappingConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitPartitionKeyBeatsConventionEntity>(b =>
             {
-                b.ToTable("ExplicitPartitionKeyBeatsConventionTable");
+                b.ToDynamoTable("ExplicitPartitionKeyBeatsConventionTable");
                 b.HasPartitionKey(x => x.CustomKey);
             });
 
@@ -136,7 +136,7 @@ public class DynamoEntityKeyMappingConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ThreePartPrimaryKeyEntity>(b =>
             {
-                b.ToTable("ThreePartPrimaryKeyTable");
+                b.ToDynamoTable("ThreePartPrimaryKeyTable");
                 b.HasKey(x => new { x.A, x.B, x.C });
             });
 
@@ -170,7 +170,7 @@ public class DynamoEntityKeyMappingConventionTests
     private sealed class KeyAttributeContext(DbContextOptions options) : DbContext(options)
     {
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<KeyAttributeEntity>(b => b.ToTable("KeyAttributeTable"));
+            => modelBuilder.Entity<KeyAttributeEntity>(b => b.ToDynamoTable("KeyAttributeTable"));
 
         public static KeyAttributeContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<KeyAttributeContext>(client));
@@ -200,7 +200,7 @@ public class DynamoEntityKeyMappingConventionTests
     {
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PrimaryKeyAttributeEntity>(b
-                => b.ToTable("PrimaryKeyAttributeTable"));
+                => b.ToDynamoTable("PrimaryKeyAttributeTable"));
 
         public static PrimaryKeyAttributeContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<PrimaryKeyAttributeContext>(client));
@@ -223,7 +223,7 @@ public class DynamoEntityKeyMappingConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SingleExplicitKeyEntity>(b =>
             {
-                b.ToTable("SingleExplicitKeyTable");
+                b.ToDynamoTable("SingleExplicitKeyTable");
                 b.HasKey(x => x.Id);
             });
 
@@ -256,7 +256,7 @@ public class DynamoEntityKeyMappingConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitKeyWithFallbackIdEntity>(b =>
             {
-                b.ToTable("ExplicitKeyWithFallbackIdTable");
+                b.ToDynamoTable("ExplicitKeyWithFallbackIdTable");
                 b.HasKey(x => x.CustomId);
             });
 
@@ -290,7 +290,7 @@ public class DynamoEntityKeyMappingConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<CombinedKeyEntity>(b =>
             {
-                b.ToTable("MatchingCombinedKeyTable");
+                b.ToDynamoTable("MatchingCombinedKeyTable");
                 b.HasKey(x => new { x.TenantId, x.OrderId });
                 b.HasPartitionKey(x => x.TenantId);
                 b.HasSortKey(x => x.OrderId);
@@ -318,7 +318,7 @@ public class DynamoEntityKeyMappingConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<CombinedKeyEntity>(b =>
             {
-                b.ToTable("MatchingPartitionKeyOnlyCombinedKeyTable");
+                b.ToDynamoTable("MatchingPartitionKeyOnlyCombinedKeyTable");
                 b.HasKey(x => new { x.TenantId, x.OrderId });
                 b.HasPartitionKey(x => x.TenantId);
             });
@@ -356,7 +356,7 @@ public class DynamoEntityKeyMappingConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitKeyBeatsConventionalNamesEntity>(b =>
             {
-                b.ToTable("ExplicitKeyBeatsConventionalNamesTable");
+                b.ToDynamoTable("ExplicitKeyBeatsConventionalNamesTable");
                 b.HasKey(x => new { x.TenantId, x.OrderId });
             });
 
@@ -382,7 +382,7 @@ public class DynamoEntityKeyMappingConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<CombinedKeyEntity>(b =>
             {
-                b.ToTable("MismatchedPartitionCombinedKeyTable");
+                b.ToDynamoTable("MismatchedPartitionCombinedKeyTable");
                 b.HasKey(x => new { x.TenantId, x.OrderId });
                 b.HasPartitionKey(x => x.OtherId);
             });
@@ -409,7 +409,7 @@ public class DynamoEntityKeyMappingConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<CombinedKeyEntity>(b =>
             {
-                b.ToTable("MismatchedSortCombinedKeyTable");
+                b.ToDynamoTable("MismatchedSortCombinedKeyTable");
                 b.HasKey(x => new { x.TenantId, x.OrderId });
                 b.HasSortKey(x => x.OtherId);
             });
@@ -436,7 +436,7 @@ public class DynamoEntityKeyMappingConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<CombinedKeyEntity>(b =>
             {
-                b.ToTable("SortKeyOnlyWithTwoPartHasKeyTable");
+                b.ToDynamoTable("SortKeyOnlyWithTwoPartHasKeyTable");
                 b.HasKey(x => new { x.TenantId, x.OrderId });
                 b.HasSortKey(x => x.OrderId);
             });
@@ -462,7 +462,7 @@ public class DynamoEntityKeyMappingConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<CombinedKeyEntity>(b =>
             {
-                b.ToTable("SortKeyOnSingleHasKeyTable");
+                b.ToDynamoTable("SortKeyOnSingleHasKeyTable");
                 b.HasKey(x => x.TenantId);
                 b.HasSortKey(x => x.OrderId);
             });
@@ -496,7 +496,7 @@ public class DynamoEntityKeyMappingConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SortKeyOnlyEntity>(b =>
             {
-                b.ToTable("SortKeyOnlyWithoutPrimaryKeyTable");
+                b.ToDynamoTable("SortKeyOnlyWithoutPrimaryKeyTable");
                 b.HasSortKey(x => x.OrderId);
             });
 

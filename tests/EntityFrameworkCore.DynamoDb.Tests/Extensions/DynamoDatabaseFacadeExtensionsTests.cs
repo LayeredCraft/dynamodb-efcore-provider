@@ -137,7 +137,7 @@ public class DynamoDatabaseFacadeExtensionsTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<TestEntity>(b =>
             {
-                b.ToTable("TestTable");
+                b.ToDynamoTable("TestTable");
                 b.HasPartitionKey(x => x.Pk);
             });
 

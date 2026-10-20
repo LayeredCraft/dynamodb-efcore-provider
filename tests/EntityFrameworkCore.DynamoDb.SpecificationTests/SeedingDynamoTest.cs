@@ -45,7 +45,7 @@ public abstract class SeedingDynamoTest : SeedingTestBase, IAsyncLifetime
 
             modelBuilder.Entity<Seed>(entity =>
             {
-                entity.ToTable($"Seeds_{TestId}");
+                entity.ToDynamoTable($"Seeds_{TestId}");
                 entity.HasPartitionKey(e => e.Id);
             });
         }

@@ -64,7 +64,7 @@ public abstract class CompositeKeyEndToEndDynamoTest
             modelBuilder.Ignore<Unicorn>();
             modelBuilder
                 .Entity<EarthPony>()
-                .ToTable("EarthPonies")
+                .ToDynamoTable("EarthPonies")
                 .HasPartitionKey(e => e.Id1)
                 .HasSortKey(e => e.Id2);
         }

@@ -199,7 +199,7 @@ public class UnsupportedOperatorTranslationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<UnsupportedOperatorEntity>(builder =>
             {
-                builder.ToTable("UnsupportedOperatorsTable");
+                builder.ToDynamoTable("UnsupportedOperatorsTable");
                 builder.HasPartitionKey(x => x.Pk);
             });
 

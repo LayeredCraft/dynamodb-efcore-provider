@@ -388,7 +388,7 @@ public class LimitTranslationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<LimitTestEntity>(b =>
             {
-                b.ToTable("LimitTestTable");
+                b.ToDynamoTable("LimitTestTable");
                 b.HasPartitionKey(x => x.Pk);
             });
 

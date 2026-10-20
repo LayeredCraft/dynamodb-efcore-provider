@@ -54,7 +54,7 @@ public class StrictShapeValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<DerivedDictionaryItem>(entity =>
             {
-                entity.ToTable("DerivedDictionaryItems");
+                entity.ToDynamoTable("DerivedDictionaryItems");
                 entity.HasPartitionKey(x => x.Pk);
                 entity.Property(x => x.Scores);
             });
@@ -68,7 +68,7 @@ public class StrictShapeValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<DerivedSetItem>(entity =>
             {
-                entity.ToTable("DerivedSetItems");
+                entity.ToDynamoTable("DerivedSetItems");
                 entity.HasPartitionKey(x => x.Pk);
                 entity.Property(x => x.Labels);
             });

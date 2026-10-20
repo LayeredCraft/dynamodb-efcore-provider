@@ -10,7 +10,7 @@ public class SharedTableWithIndexesDbContext(DbContextOptions options) : DbConte
     {
         modelBuilder.Entity<WorkOrderEntity>(builder =>
         {
-            builder.ToTable(SharedTableWithIndexesItemTable.TableName);
+            builder.ToDynamoTable(SharedTableWithIndexesItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
             builder.HasLocalSecondaryIndex("ByStatus", x => x.Status);
@@ -18,14 +18,14 @@ public class SharedTableWithIndexesDbContext(DbContextOptions options) : DbConte
 
         modelBuilder.Entity<PriorityWorkOrderEntity>(builder =>
         {
-            builder.ToTable(SharedTableWithIndexesItemTable.TableName);
+            builder.ToDynamoTable(SharedTableWithIndexesItemTable.TableName);
             builder.HasBaseType<WorkOrderEntity>();
             builder.HasGlobalSecondaryIndex("ByPriority", x => x.Priority);
         });
 
         modelBuilder.Entity<ArchivedWorkOrderEntity>(builder =>
         {
-            builder.ToTable(SharedTableWithIndexesItemTable.TableName);
+            builder.ToDynamoTable(SharedTableWithIndexesItemTable.TableName);
             builder.HasBaseType<WorkOrderEntity>();
         });
     }

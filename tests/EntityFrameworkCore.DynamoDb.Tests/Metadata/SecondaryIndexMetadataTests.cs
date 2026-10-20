@@ -741,7 +741,7 @@ public class SecondaryIndexMetadataTests
         {
             modelBuilder.Entity<BaseDerivedDuplicateSortKeyOrder>(entity =>
             {
-                entity.ToTable("Orders");
+                entity.ToDynamoTable("Orders");
                 entity.HasPartitionKey(x => x.TenantId);
                 entity.HasSortKey(x => x.OrderId);
             });
@@ -1022,7 +1022,7 @@ public class SecondaryIndexMetadataTests
         {
             modelBuilder.Entity<BaseDerivedUnsupportedGlobalPartitionKeyOrder>(entity =>
             {
-                entity.ToTable("Orders");
+                entity.ToDynamoTable("Orders");
                 entity.HasPartitionKey(x => x.TenantId);
                 entity.HasSortKey(x => x.OrderId);
             });
@@ -1055,7 +1055,7 @@ public class SecondaryIndexMetadataTests
         {
             modelBuilder.Entity<BaseOrder>(entity =>
             {
-                entity.ToTable("Orders");
+                entity.ToDynamoTable("Orders");
                 entity.HasPartitionKey(x => x.TenantId);
                 entity.HasSortKey(x => x.OrderId);
                 entity.HasLocalSecondaryIndex("ByStatus", x => x.Status);
@@ -1102,7 +1102,7 @@ public class SecondaryIndexMetadataTests
         private static void ConfigureSharedOrder<TEntity>(EntityTypeBuilder<TEntity> entity)
             where TEntity : class
         {
-            entity.ToTable("Orders");
+            entity.ToDynamoTable("Orders");
             entity.HasPartitionKey("TenantId");
             entity.HasSortKey("OrderId");
             entity.HasGlobalSecondaryIndex("ByCustomer", "CustomerId");
@@ -1139,7 +1139,7 @@ public class SecondaryIndexMetadataTests
         {
             modelBuilder.Entity<CustomerOrder>(entity =>
             {
-                entity.ToTable("Orders");
+                entity.ToDynamoTable("Orders");
                 entity.HasPartitionKey(x => x.TenantId);
                 entity.HasSortKey(x => x.OrderId);
                 entity.HasGlobalSecondaryIndex("ByCustomer", x => x.CustomerId);
@@ -1148,7 +1148,7 @@ public class SecondaryIndexMetadataTests
 
             modelBuilder.Entity<AuditOrder>(entity =>
             {
-                entity.ToTable("Orders");
+                entity.ToDynamoTable("Orders");
                 entity.HasPartitionKey(x => x.TenantId);
                 entity.HasSortKey(x => x.OrderId);
                 entity.HasLocalSecondaryIndex("ByStatus", x => x.Status);
@@ -1183,7 +1183,7 @@ public class SecondaryIndexMetadataTests
         {
             modelBuilder.Entity<SharedStatusGsiOrder>(entity =>
             {
-                entity.ToTable("Orders");
+                entity.ToDynamoTable("Orders");
                 entity.HasPartitionKey(x => x.TenantId);
                 entity.HasSortKey(x => x.OrderId);
                 entity.HasGlobalSecondaryIndex("ByStatus", x => x.Status);
@@ -1191,7 +1191,7 @@ public class SecondaryIndexMetadataTests
 
             modelBuilder.Entity<SharedStatusLsiOrder>(entity =>
             {
-                entity.ToTable("Orders");
+                entity.ToDynamoTable("Orders");
                 entity.HasPartitionKey(x => x.TenantId);
                 entity.HasSortKey(x => x.OrderId);
                 entity.HasLocalSecondaryIndex("ByStatus", x => x.Status);
@@ -1224,7 +1224,7 @@ public class SecondaryIndexMetadataTests
         {
             modelBuilder.Entity<BaseLookupOrder>(entity =>
             {
-                entity.ToTable("Orders");
+                entity.ToDynamoTable("Orders");
                 entity.HasPartitionKey(x => x.TenantId);
                 entity.HasSortKey(x => x.OrderId);
                 entity.HasGlobalSecondaryIndex("ByLookup", x => x.CustomerId);
@@ -1245,7 +1245,7 @@ public class SecondaryIndexMetadataTests
         {
             modelBuilder.Entity<BaseLookupOrder>(entity =>
             {
-                entity.ToTable("Orders");
+                entity.ToDynamoTable("Orders");
                 entity.HasPartitionKey(x => x.TenantId);
                 entity.HasSortKey(x => x.OrderId);
                 entity.HasGlobalSecondaryIndex("ByLookup", x => x.CustomerId);
@@ -1282,14 +1282,14 @@ public class SecondaryIndexMetadataTests
         {
             modelBuilder.Entity<StringCustomerOrder>(entity =>
             {
-                entity.ToTable("Orders");
+                entity.ToDynamoTable("Orders");
                 entity.HasPartitionKey(x => x.TenantId);
                 entity.HasGlobalSecondaryIndex("ByCustomer", x => x.CustomerId);
             });
 
             modelBuilder.Entity<NumericCustomerOrder>(entity =>
             {
-                entity.ToTable("Orders");
+                entity.ToDynamoTable("Orders");
                 entity.HasPartitionKey(x => x.TenantId);
                 entity.HasGlobalSecondaryIndex("ByCustomer", x => x.CustomerId);
             });

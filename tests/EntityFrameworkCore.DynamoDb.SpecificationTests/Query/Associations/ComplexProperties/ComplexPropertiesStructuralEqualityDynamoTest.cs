@@ -106,7 +106,7 @@ public abstract class ComplexPropertiesStructuralEqualityDynamoTest
 
             modelBuilder.Entity<RootEntity>(b =>
             {
-                b.ToTable("RootEntities").HasPartitionKey(e => e.Id);
+                b.ToDynamoTable("RootEntities").HasPartitionKey(e => e.Id);
                 b.Property(e => e.Id).ValueGeneratedNever();
 
                 b.ComplexProperty(
@@ -128,7 +128,7 @@ public abstract class ComplexPropertiesStructuralEqualityDynamoTest
 
             modelBuilder.Entity<ValueRootEntity>(b =>
             {
-                b.ToTable("ValueRootEntities").HasPartitionKey(e => e.Id);
+                b.ToDynamoTable("ValueRootEntities").HasPartitionKey(e => e.Id);
                 b.Property(e => e.Id).ValueGeneratedNever();
                 b.ComplexProperty(e => e.RequiredAssociate);
 

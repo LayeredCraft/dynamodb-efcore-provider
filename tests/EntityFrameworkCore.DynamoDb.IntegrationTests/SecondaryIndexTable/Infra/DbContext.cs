@@ -17,7 +17,7 @@ public class SecondaryIndexDbContext(DbContextOptions options) : DbContext(optio
         var entity = modelBuilder.Entity<OrderItem>();
 
         entity
-            .ToTable(SecondaryIndexOrdersTable.TableName)
+            .ToDynamoTable(SecondaryIndexOrdersTable.TableName)
             .HasPartitionKey(x => x.CustomerId)
             .HasSortKey(x => x.OrderId);
 

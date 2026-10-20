@@ -66,7 +66,7 @@ public sealed class DynamoShortTypeTest(
 
             modelBuilder
                 .Entity<TypeEntity<short>>()
-                .ToTable("ShortTypes")
+                .ToDynamoTable("ShortTypes")
                 .HasPartitionKey(e => e.Id);
         }
     }

@@ -278,7 +278,7 @@ public abstract class FunkyDataQueryDynamoTest
         protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
             => modelBuilder.Entity<FunkyCustomer>(entity =>
             {
-                entity.ToTable("FunkyCustomers").HasPartitionKey(e => e.Id);
+                entity.ToDynamoTable("FunkyCustomers").HasPartitionKey(e => e.Id);
                 entity.Property(e => e.Id).ValueGeneratedNever();
             });
     }

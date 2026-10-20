@@ -41,13 +41,13 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
     {
         modelBuilder.Entity<CustomerItem>(builder =>
         {
-            builder.ToTable(SaveChangesItemTable.TableName);
+            builder.ToDynamoTable(SaveChangesItemTable.TableName);
             builder.Property(x => x.Version).IsConcurrencyToken();
         });
 
         modelBuilder.Entity<OrderItem>(builder =>
         {
-            builder.ToTable(SaveChangesItemTable.TableName);
+            builder.ToDynamoTable(SaveChangesItemTable.TableName);
             builder.Property(x => x.Version).IsConcurrencyToken();
 
             builder.ComplexProperty(
@@ -67,19 +67,19 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
 
         modelBuilder.Entity<ProductItem>(builder =>
         {
-            builder.ToTable(SaveChangesItemTable.TableName);
+            builder.ToDynamoTable(SaveChangesItemTable.TableName);
             builder.Property(x => x.Version).IsConcurrencyToken();
         });
 
         modelBuilder.Entity<SessionItem>(builder =>
         {
-            builder.ToTable(SaveChangesItemTable.TableName);
+            builder.ToDynamoTable(SaveChangesItemTable.TableName);
             builder.Property(x => x.Version).IsConcurrencyToken();
         });
 
         modelBuilder.Entity<ConverterCoverageItem>(builder =>
         {
-            builder.ToTable(SaveChangesItemTable.TableName);
+            builder.ToDynamoTable(SaveChangesItemTable.TableName);
             builder.Property(x => x.Version).IsConcurrencyToken();
         });
 
@@ -87,14 +87,14 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
         // exercise the boxed scalar fallback write path.
         modelBuilder.Entity<CustomConverterItem>(builder =>
         {
-            builder.ToTable(SaveChangesItemTable.TableName);
+            builder.ToDynamoTable(SaveChangesItemTable.TableName);
             builder.Property(x => x.Code).HasConversion<ProductCodeConverter>();
             builder.Property(x => x.OptionalCode).HasConversion<ProductCodeConverter>();
         });
 
         modelBuilder.Entity<ConvertedCollectionItem>(builder =>
         {
-            builder.ToTable(SaveChangesItemTable.TableName);
+            builder.ToDynamoTable(SaveChangesItemTable.TableName);
             builder.Property(x => x.Version).IsConcurrencyToken();
             builder
                 .Property(x => x.Scores)
@@ -110,14 +110,14 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
 
         modelBuilder.Entity<QuotedAttributeItem>(builder =>
         {
-            builder.ToTable(SaveChangesItemTable.TableName);
+            builder.ToDynamoTable(SaveChangesItemTable.TableName);
             builder.Property(x => x.Version).IsConcurrencyToken();
             builder.Property(x => x.DisplayName).HasAttributeName("O'Brien");
         });
 
         modelBuilder.Entity<SparseGsiItem>(builder =>
         {
-            builder.ToTable(SaveChangesItemTable.TableName);
+            builder.ToDynamoTable(SaveChangesItemTable.TableName);
             builder.Property(x => x.Version).IsConcurrencyToken();
             builder.Property(x => x.Gs1Pk).HasAttributeName("gs1-pk");
             builder.Property(x => x.Gs1Sk).HasAttributeName("gs1-sk");

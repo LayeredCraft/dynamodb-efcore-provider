@@ -548,7 +548,7 @@ public abstract class ComplexTypeQueryDynamoTest
 
             modelBuilder.Entity<Customer>(entity =>
             {
-                entity.ToTable("Customers").HasPartitionKey(e => e.Id);
+                entity.ToDynamoTable("Customers").HasPartitionKey(e => e.Id);
                 entity.Property(e => e.Id).ValueGeneratedNever();
                 entity.ComplexProperty(
                     e => e.ShippingAddress,
@@ -563,7 +563,7 @@ public abstract class ComplexTypeQueryDynamoTest
 
             modelBuilder.Entity<ValuedCustomer>(entity =>
             {
-                entity.ToTable("ValuedCustomers").HasPartitionKey(e => e.Id);
+                entity.ToDynamoTable("ValuedCustomers").HasPartitionKey(e => e.Id);
                 entity.Property(e => e.Id).ValueGeneratedNever();
                 entity.ComplexProperty(
                     e => e.ShippingAddress,

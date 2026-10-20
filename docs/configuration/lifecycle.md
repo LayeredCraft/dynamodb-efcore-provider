@@ -74,15 +74,14 @@ Add the EF health-check package that matches the application's EF Core version:
 dotnet add package Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore
 ```
 
-The health-check package adds EF Core's relational `ToTable` extension. If a DynamoDB model uses
-`ToTable`, invoke the provider's method explicitly to avoid an ambiguous call:
+The provider names its table-mapping method `ToDynamoTable` so it stays unambiguous when EF Core
+Relational's `ToTable` extension is also in scope, for example through the health-check package or
+`Microsoft.EntityFrameworkCore.Design`:
 
 ```csharp
 protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
-    DynamoEntityTypeBuilderExtensions.ToTable(
-        modelBuilder.Entity<Order>(),
-        "orders");
+    modelBuilder.Entity<Order>().ToDynamoTable("orders");
 }
 ```
 

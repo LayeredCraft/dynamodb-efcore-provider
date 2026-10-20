@@ -3,6 +3,8 @@ using Amazon.DynamoDBv2.Model;
 using AwesomeAssertions;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using NSubstitute;
@@ -79,7 +81,7 @@ public sealed class DynamoDbHealthChecksTests
     }
 
     [Fact(Timeout = 30_000)]
-    public void ToTable_CanBeExplicitlyInvoked_WhenHealthCheckPackageIsInstalled()
+    public void ToDynamoTable_IsUnambiguous_WhenHealthCheckPackageIsInstalled()
     {
         var options = new DbContextOptionsBuilder<MappedHealthCheckContext>().UseDynamo().Options;
 
@@ -100,9 +102,21 @@ public sealed class DynamoDbHealthChecksTests
         DbContextOptions<MappedHealthCheckContext> options) : DbContext(options)
     {
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => DynamoEntityTypeBuilderExtensions.ToTable(
-                modelBuilder.Entity<HealthCheckItem>(),
-                "health-checks");
+        {
+            // This project references EF Core Relational through the health-check package. The
+            // calls below only compile while the provider names do not collide with Relational's
+            // ToTable/SetTableName extensions.
+            modelBuilder.Entity<HealthCheckItem>().ToDynamoTable("health-checks");
+
+            EntityTypeBuilder nonGenericBuilder = modelBuilder.Entity<HealthCheckItem>();
+            nonGenericBuilder.ToDynamoTable("health-checks");
+            nonGenericBuilder.Metadata.SetDynamoTableName("health-checks");
+
+            ((IConventionEntityType)nonGenericBuilder.Metadata).Builder
+                .CanSetDynamoTable("health-checks")
+                .Should()
+                .BeTrue();
+        }
     }
 
     private sealed class HealthCheckItem

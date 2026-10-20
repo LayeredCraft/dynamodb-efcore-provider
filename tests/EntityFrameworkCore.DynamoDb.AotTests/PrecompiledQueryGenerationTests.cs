@@ -1287,12 +1287,12 @@ public class PrecompiledQueryGenerationTests
                                           {
                                               modelBuilder.Entity<CollisionA.Item>(entity =>
                                               {
-                                                  DynamoEntityTypeBuilderExtensions.ToTable(entity, "ItemsA");
+                                                  DynamoEntityTypeBuilderExtensions.ToDynamoTable(entity, "ItemsA");
                                                   entity.HasPartitionKey(item => item.Pk);
                                               });
                                               modelBuilder.Entity<CollisionB.Item>(entity =>
                                               {
-                                                  DynamoEntityTypeBuilderExtensions.ToTable(entity, "ItemsB");
+                                                  DynamoEntityTypeBuilderExtensions.ToDynamoTable(entity, "ItemsB");
                                                   entity.HasPartitionKey(item => item.Pk);
                                               });
                                           }
@@ -1447,12 +1447,12 @@ public class PrecompiledQueryGenerationTests
                                           {
                                               modelBuilder.Entity<SignatureA.ItemA>(entity =>
                                               {
-                                                  DynamoEntityTypeBuilderExtensions.ToTable(entity, "ItemsA");
+                                                  DynamoEntityTypeBuilderExtensions.ToDynamoTable(entity, "ItemsA");
                                                   entity.HasPartitionKey(item => item.Pk);
                                               });
                                               modelBuilder.Entity<SignatureB.EntityB>(entity =>
                                               {
-                                                  DynamoEntityTypeBuilderExtensions.ToTable(entity, "ItemsB");
+                                                  DynamoEntityTypeBuilderExtensions.ToDynamoTable(entity, "ItemsB");
                                                   entity.HasPartitionKey(item => item.Pk);
                                                   entity.ComplexProperty(item => item.Detail);
                                               });
@@ -2746,7 +2746,7 @@ public class PrecompiledQueryGenerationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ConvertedCollectionItem>(entity =>
             {
-                DynamoEntityTypeBuilderExtensions.ToTable(entity, "ConvertedCollectionItems");
+                DynamoEntityTypeBuilderExtensions.ToDynamoTable(entity, "ConvertedCollectionItems");
                 entity.HasPartitionKey(item => item.Pk);
                 entity
                     .Property(item => item.Scores)
@@ -2774,7 +2774,7 @@ public class PrecompiledQueryGenerationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<CollectionItem>(entity =>
             {
-                DynamoEntityTypeBuilderExtensions.ToTable(entity, "CollectionItems");
+                DynamoEntityTypeBuilderExtensions.ToDynamoTable(entity, "CollectionItems");
                 entity.HasPartitionKey(item => item.Pk);
                 entity
                     .PrimitiveCollection(item => item.ConvertedIds)
@@ -2877,12 +2877,12 @@ public class PrecompiledQueryGenerationTests
             modelBuilder.Entity<First.Widget>(entity =>
             {
                 entity.HasPartitionKey(item => item.Pk);
-                DynamoEntityTypeBuilderExtensions.ToTable(entity, "FirstWidgets");
+                DynamoEntityTypeBuilderExtensions.ToDynamoTable(entity, "FirstWidgets");
             });
             modelBuilder.Entity<Second.Widget>(entity =>
             {
                 entity.HasPartitionKey(item => item.Pk);
-                DynamoEntityTypeBuilderExtensions.ToTable(entity, "SecondWidgets");
+                DynamoEntityTypeBuilderExtensions.ToDynamoTable(entity, "SecondWidgets");
             });
         }
     }
@@ -2915,12 +2915,12 @@ public class PrecompiledQueryGenerationTests
                                           {
                                               modelBuilder.Entity<EncodingCollision.A_B.C.Widget>(entity =>
                                               {
-                                                  DynamoEntityTypeBuilderExtensions.ToTable(entity, "WidgetsA");
+                                                  DynamoEntityTypeBuilderExtensions.ToDynamoTable(entity, "WidgetsA");
                                                   entity.HasPartitionKey(item => item.Pk);
                                               });
                                               modelBuilder.Entity<EncodingCollision.A.B_C.Widget>(entity =>
                                               {
-                                                  DynamoEntityTypeBuilderExtensions.ToTable(entity, "WidgetsB");
+                                                  DynamoEntityTypeBuilderExtensions.ToDynamoTable(entity, "WidgetsB");
                                                   entity.HasPartitionKey(item => item.Pk);
                                               });
                                           }

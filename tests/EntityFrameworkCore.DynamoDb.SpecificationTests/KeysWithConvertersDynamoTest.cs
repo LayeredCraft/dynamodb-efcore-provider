@@ -374,7 +374,7 @@ public abstract class KeysWithConvertersDynamoTest
         private static void ConfigureIntStructPrincipal(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IntStructKeyPrincipal>(entity =>
             {
-                entity.ToTable("IntStructKeyPrincipals").HasPartitionKey(e => e.Id);
+                entity.ToDynamoTable("IntStructKeyPrincipals").HasPartitionKey(e => e.Id);
                 entity
                     .Property(e => e.Id)
                     .HasConversion(IntStructKey.Converter)
@@ -386,7 +386,7 @@ public abstract class KeysWithConvertersDynamoTest
         private static void ConfigureBytesStructPrincipal(ModelBuilder modelBuilder)
             => modelBuilder.Entity<BytesStructKeyPrincipal>(entity =>
             {
-                entity.ToTable("BytesStructKeyPrincipals").HasPartitionKey(e => e.Id);
+                entity.ToDynamoTable("BytesStructKeyPrincipals").HasPartitionKey(e => e.Id);
                 entity
                     .Property(e => e.Id)
                     .HasConversion(BytesStructKey.Converter)

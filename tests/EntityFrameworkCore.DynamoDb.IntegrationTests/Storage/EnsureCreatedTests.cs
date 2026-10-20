@@ -537,7 +537,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<EnsureItem>(entity =>
             {
-                entity.ToTable("ensure-created-pkonly");
+                entity.ToDynamoTable("ensure-created-pkonly");
                 entity.Property(x => x.Pk).HasAttributeName("pk");
                 entity.HasPartitionKey(x => x.Pk);
             });
@@ -551,7 +551,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IndexedEnsureItem>(entity =>
             {
-                entity.ToTable("ensure-created-indexed");
+                entity.ToDynamoTable("ensure-created-indexed");
                 entity.Property(x => x.Pk).HasAttributeName("pk");
                 entity.Property(x => x.Sk).HasAttributeName("sk");
                 entity.Property(x => x.Customer).HasAttributeName("customer");
@@ -569,7 +569,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IndexedEnsureItem>(entity =>
             {
-                entity.ToTable("ensure-created-missing-gsi");
+                entity.ToDynamoTable("ensure-created-missing-gsi");
                 entity.Property(x => x.Pk).HasAttributeName("pk");
                 entity.Property(x => x.Sk).HasAttributeName("sk");
                 entity.HasPartitionKey(x => x.Pk);
@@ -584,7 +584,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IndexedEnsureItem>(entity =>
             {
-                entity.ToTable("ensure-created-missing-gsis");
+                entity.ToDynamoTable("ensure-created-missing-gsis");
                 entity.Ignore(x => x.Sk);
                 entity.Property(x => x.Pk).HasAttributeName("pk");
                 entity.Property(x => x.Customer).HasAttributeName("customer");
@@ -603,7 +603,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<EnsureItem>(entity =>
             {
-                entity.ToTable("ensure-created-repeat");
+                entity.ToDynamoTable("ensure-created-repeat");
                 entity.Property(x => x.Pk).HasAttributeName("pk");
                 entity.HasPartitionKey(x => x.Pk);
             });
@@ -617,7 +617,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<EnsureItem>(entity =>
             {
-                entity.ToTable("ensure-created-recreate-nowait");
+                entity.ToDynamoTable("ensure-created-recreate-nowait");
                 entity.Property(x => x.Pk).HasAttributeName("pk");
                 entity.HasPartitionKey(x => x.Pk);
             });
@@ -634,14 +634,14 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         {
             modelBuilder.Entity<ExistingSeedItem>(entity =>
             {
-                entity.ToTable("ensure-created-seed-existing");
+                entity.ToDynamoTable("ensure-created-seed-existing");
                 entity.Property(x => x.Pk).HasAttributeName("pk");
                 entity.HasPartitionKey(x => x.Pk);
                 entity.HasData(new ExistingSeedItem { Pk = "existing" });
             });
             modelBuilder.Entity<MissingSeedItem>(entity =>
             {
-                entity.ToTable("ensure-created-seed-missing");
+                entity.ToDynamoTable("ensure-created-seed-missing");
                 entity.Property(x => x.Pk).HasAttributeName("pk");
                 entity.HasPartitionKey(x => x.Pk);
                 entity.HasData(new MissingSeedItem { Pk = "missing" });
@@ -657,7 +657,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RuntimeNamedItem>(entity =>
             {
-                entity.ToTable("ensure-created-runtime-design").HasLogicalTableName("RuntimeNamed");
+                entity.ToDynamoTable("ensure-created-runtime-design").HasLogicalTableName("RuntimeNamed");
                 entity.Property(x => x.Pk).HasAttributeName("pk");
                 entity.Property(x => x.Customer).HasAttributeName("customer");
                 entity.HasPartitionKey(x => x.Pk);
@@ -684,7 +684,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         {
             modelBuilder.Entity<SeedAnimal>(entity =>
             {
-                entity.ToTable("ensure-created-seed-hierarchy");
+                entity.ToDynamoTable("ensure-created-seed-hierarchy");
                 entity.Property(x => x.Pk).HasAttributeName("pk");
                 entity.HasPartitionKey(x => x.Pk);
                 entity.HasData(new SeedAnimal { Pk = "animal" });
@@ -708,7 +708,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SeedNoWaitItem>(entity =>
             {
-                entity.ToTable("ensure-created-seed-nowait");
+                entity.ToDynamoTable("ensure-created-seed-nowait");
                 entity.Property(x => x.Pk).HasAttributeName("pk");
                 entity.HasPartitionKey(x => x.Pk);
                 entity.HasData(new SeedNoWaitItem { Pk = "seeded" });
@@ -721,7 +721,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IndexedEnsureItem>(entity =>
             {
-                entity.ToTable("ensure-created-missing-lsi");
+                entity.ToDynamoTable("ensure-created-missing-lsi");
                 entity.Property(x => x.Pk).HasAttributeName("pk");
                 entity.Property(x => x.Sk).HasAttributeName("sk");
                 entity.Property(x => x.Status).HasAttributeName("status");

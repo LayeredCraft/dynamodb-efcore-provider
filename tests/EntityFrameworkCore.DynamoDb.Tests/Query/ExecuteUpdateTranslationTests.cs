@@ -361,7 +361,7 @@ public class ExecuteUpdateTranslationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExecuteUpdateEntity>(builder =>
             {
-                builder.ToTable("ExecuteUpdateTestsTable");
+                builder.ToDynamoTable("ExecuteUpdateTestsTable");
                 builder.HasPartitionKey(x => x.Pk);
                 builder.HasSortKey(x => x.Sk);
                 builder.Property(x => x.Converted).HasConversion(v => v + 100, v => v - 100);
@@ -393,7 +393,7 @@ public class ExecuteUpdateTranslationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExecuteUpdateEntity>(builder =>
             {
-                builder.ToTable("ExecuteUpdateTestsTable");
+                builder.ToDynamoTable("ExecuteUpdateTestsTable");
                 builder.HasPartitionKey(x => x.Pk);
                 builder.HasSortKey(x => x.Sk);
                 builder.Property(x => x.Name).HasAttributeName("na.me");

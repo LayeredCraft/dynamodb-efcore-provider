@@ -16,6 +16,6 @@ public class SimpleTableDbContext(DbContextOptions options) : DbContext(options)
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder
             .Entity<SimpleItem>()
-            .ToTable(SimpleItemTable.TableName)
+            .ToDynamoTable(SimpleItemTable.TableName)
             .HasPartitionKey(x => x.Pk);
 }

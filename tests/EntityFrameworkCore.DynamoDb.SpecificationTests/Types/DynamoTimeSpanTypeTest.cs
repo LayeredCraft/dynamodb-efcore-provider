@@ -66,7 +66,7 @@ public sealed class DynamoTimeSpanTypeTest(
 
             modelBuilder
                 .Entity<TypeEntity<TimeSpan>>()
-                .ToTable("TimeSpanTypes")
+                .ToDynamoTable("TimeSpanTypes")
                 .HasPartitionKey(e => e.Id);
         }
     }

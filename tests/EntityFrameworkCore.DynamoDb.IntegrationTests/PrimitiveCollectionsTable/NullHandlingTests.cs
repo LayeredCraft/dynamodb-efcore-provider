@@ -267,7 +267,7 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OptionalCollectionsItem>(entity =>
             {
-                entity.ToTable(PrimitiveCollectionsItemTable.TableName);
+                entity.ToDynamoTable(PrimitiveCollectionsItemTable.TableName);
                 entity.HasPartitionKey(x => x.Pk);
             });
     }

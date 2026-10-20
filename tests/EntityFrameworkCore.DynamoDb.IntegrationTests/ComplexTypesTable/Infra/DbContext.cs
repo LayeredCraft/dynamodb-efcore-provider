@@ -27,7 +27,7 @@ public class ComplexCollectionWithIdPropertyDbContext(DbContextOptions options) 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<AnalysisReport>(builder =>
         {
-            builder.ToTable(AnalysisReportTable.TableName);
+            builder.ToDynamoTable(AnalysisReportTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.ComplexCollection(
                 x => x.Results,
@@ -67,7 +67,7 @@ public class ConventionOnlyComplexTypesDbContext(DbContextOptions options) : DbC
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<ComplexShapeItem>(builder =>
         {
-            builder.ToTable(ComplexTypesItemTable.TableName);
+            builder.ToDynamoTable(ComplexTypesItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
         });
 }
@@ -98,7 +98,7 @@ public class ConventionOnlyCollectionShapeDbContext(DbContextOptions options) : 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<CollectionShapeItem>(builder =>
         {
-            builder.ToTable(CollectionShapeItemTable.TableName);
+            builder.ToDynamoTable(CollectionShapeItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
         });
 }
@@ -122,7 +122,7 @@ public class ComplexTypesTableDbContext(DbContextOptions options) : DbContext(op
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<ComplexShapeItem>(builder =>
         {
-            builder.ToTable(ComplexTypesItemTable.TableName);
+            builder.ToDynamoTable(ComplexTypesItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.ComplexProperty(
                 x => x.Profile,

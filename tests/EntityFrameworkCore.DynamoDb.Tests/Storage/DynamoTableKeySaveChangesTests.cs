@@ -381,7 +381,7 @@ public class DynamoTableKeySaveChangesTests
         {
             modelBuilder.Entity<BaseDocument>(b =>
             {
-                b.ToTable("Documents");
+                b.ToDynamoTable("Documents");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
                 b.Property(x => x.Pk).HasAttributeName("pk_attr");
@@ -400,7 +400,7 @@ public class DynamoTableKeySaveChangesTests
 
             modelBuilder.Entity<HasKeyDocument>(b =>
             {
-                b.ToTable("HasKeyDocuments");
+                b.ToDynamoTable("HasKeyDocuments");
                 b.HasKey(x => new { x.TenantId, x.OrderId });
                 b.Property(x => x.TenantId).HasAttributeName("tenant_id");
                 b.Property(x => x.OrderId).HasAttributeName("order_id");
@@ -409,7 +409,7 @@ public class DynamoTableKeySaveChangesTests
 
             modelBuilder.Entity<SingleHasKeyDocument>(b =>
             {
-                b.ToTable("SingleHasKeyDocuments");
+                b.ToDynamoTable("SingleHasKeyDocuments");
                 b.HasKey(x => x.Id);
                 b.Property(x => x.Id).HasAttributeName("id_attr");
                 b.Property(x => x.Name).HasAttributeName("name");
@@ -417,7 +417,7 @@ public class DynamoTableKeySaveChangesTests
 
             modelBuilder.Entity<ShadowHasKeyDocument>(b =>
             {
-                b.ToTable("ShadowHasKeyDocuments");
+                b.ToDynamoTable("ShadowHasKeyDocuments");
                 b.Property<string>("PK").HasAttributeName("pk_attr");
                 b.Property<string>("SK").HasAttributeName("sk_attr");
                 b.HasKey("PK", "SK");
@@ -426,14 +426,14 @@ public class DynamoTableKeySaveChangesTests
 
             modelBuilder.Entity<SharedRootA>(b =>
             {
-                b.ToTable("SharedRoots");
+                b.ToDynamoTable("SharedRoots");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
             });
 
             modelBuilder.Entity<SharedRootB>(b =>
             {
-                b.ToTable("SharedRoots");
+                b.ToDynamoTable("SharedRoots");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
             });

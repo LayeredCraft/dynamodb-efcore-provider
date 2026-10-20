@@ -140,7 +140,7 @@ public class DynamoDictionaryNullValueTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<NullValueEntity>(builder =>
             {
-                builder.ToTable("NullValueItems");
+                builder.ToDynamoTable("NullValueItems");
                 builder.HasPartitionKey(x => x.Pk);
             });
     }

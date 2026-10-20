@@ -83,14 +83,14 @@ public class RelationshipRejectionTests
     private static void ConfigurePrincipal(ModelBuilder modelBuilder)
         => modelBuilder.Entity<Principal>(b =>
         {
-            b.ToTable("principals");
+            b.ToDynamoTable("principals");
             b.HasPartitionKey(e => e.Pk);
         });
 
     private static void ConfigureDependent(ModelBuilder modelBuilder)
         => modelBuilder.Entity<Dependent>(b =>
         {
-            b.ToTable("dependents");
+            b.ToDynamoTable("dependents");
             b.HasPartitionKey(e => e.Pk);
         });
 
@@ -154,12 +154,12 @@ public class RelationshipRejectionTests
         {
             modelBuilder.Entity<ManyLeft>(b =>
             {
-                b.ToTable("lefts");
+                b.ToDynamoTable("lefts");
                 b.HasPartitionKey(e => e.Pk);
             });
             modelBuilder.Entity<ManyRight>(b =>
             {
-                b.ToTable("rights");
+                b.ToDynamoTable("rights");
                 b.HasPartitionKey(e => e.Pk);
             });
             modelBuilder.Entity<ManyLeft>().HasMany(e => e.Rights).WithMany(e => e.Lefts);
@@ -178,12 +178,12 @@ public class RelationshipRejectionTests
         {
             modelBuilder.Entity<ForeignKeyAttributePrincipal>(b =>
             {
-                b.ToTable("fk-principals");
+                b.ToDynamoTable("fk-principals");
                 b.HasPartitionKey(e => e.Pk);
             });
             modelBuilder.Entity<ForeignKeyAttributeDependent>(b =>
             {
-                b.ToTable("fk-dependents");
+                b.ToDynamoTable("fk-dependents");
                 b.HasPartitionKey(e => e.Pk);
             });
         }
@@ -199,12 +199,12 @@ public class RelationshipRejectionTests
         {
             modelBuilder.Entity<InversePropertyPrincipal>(b =>
             {
-                b.ToTable("inverse-principals");
+                b.ToDynamoTable("inverse-principals");
                 b.HasPartitionKey(e => e.Pk);
             });
             modelBuilder.Entity<InversePropertyDependent>(b =>
             {
-                b.ToTable("inverse-dependents");
+                b.ToDynamoTable("inverse-dependents");
                 b.HasPartitionKey(e => e.Pk);
             });
         }

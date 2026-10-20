@@ -16,12 +16,18 @@ public static class DynamoEntityTypeBuilderExtensions
     extension(EntityTypeBuilder entityTypeBuilder)
     {
         /// <summary>Configures the table that the entity type maps to when targeting AWS DynamoDB.</summary>
+        /// <remarks>
+        ///     Named <c>ToDynamoTable</c> rather than <c>ToTable</c> so the provider's table mapping
+        ///     stays unambiguous when EF Core Relational's extensions are also in scope, for
+        ///     example through <c>Microsoft.EntityFrameworkCore.Design</c> or the EF Core
+        ///     health-check package.
+        /// </remarks>
         /// <param name="name">
         ///     The table name. Pass <see langword="null" /> to clear the explicit table mapping and
         ///     fall back to convention behavior.
         /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
-        public EntityTypeBuilder ToTable(string? name)
+        public EntityTypeBuilder ToDynamoTable(string? name)
         {
             name.NullButNotEmpty();
 
@@ -40,14 +46,14 @@ public static class DynamoEntityTypeBuilderExtensions
         ///         example a Native AOT application) to an environment-specific physical table at runtime
         ///         with <c>UseDynamo(o =&gt; o.RuntimeResourceNames(...))</c>. Most applications do not need
         ///         it. If you use ordinary EF model building, or your physical table names are the same in
-        ///         every environment, configure the table with <c>ToTable(...)</c> only.
+        ///         every environment, configure the table with <c>ToDynamoTable(...)</c> only.
         ///     </para>
         ///     <para>
-        ///         <c>ToTable(...)</c> remains the <b>physical resource name</b> (the design-time value the
-        ///         model, and any compiled model, is built with). The logical table identity belongs to the
-        ///         table, not to one entity type: entity types that share a table can declare it on any one
-        ///         of them, and conflicting logical table identities within one table are a model
-        ///         validation error.
+        ///         <c>ToDynamoTable(...)</c> remains the <b>physical resource name</b> (the design-time
+        ///         value the model, and any compiled model, is built with). The logical table identity
+        ///         belongs to the table, not to one entity type: entity types that share a table can
+        ///         declare it on any one of them, and conflicting logical table identities within one
+        ///         table are a model validation error.
         ///     </para>
         /// </remarks>
         /// <param name="logicalName">The logical table identity.</param>
@@ -252,13 +258,21 @@ public static class DynamoEntityTypeBuilderExtensions
                 fromDataAnnotation);
 
         /// <summary>Configures the table that the entity type maps to when targeting AWS DynamoDB.</summary>
+        /// <remarks>
+        ///     Named <c>ToDynamoTable</c> rather than <c>ToTable</c> so the provider's table mapping
+        ///     stays unambiguous when EF Core Relational's extensions are also in scope, for
+        ///     example through <c>Microsoft.EntityFrameworkCore.Design</c> or the EF Core
+        ///     health-check package.
+        /// </remarks>
         /// <param name="name">The table name, or <see langword="null" /> to clear the explicit table mapping.</param>
         /// <param name="fromDataAnnotation">
         ///     <see langword="true" /> if configured via a data annotation;
         ///     <see langword="false" /> for the fluent API.
         /// </param>
         /// <returns>The same builder instance if the table name was set; otherwise <see langword="null" />.</returns>
-        public IConventionEntityTypeBuilder? ToTable(string? name, bool fromDataAnnotation = false)
+        public IConventionEntityTypeBuilder? ToDynamoTable(
+            string? name,
+            bool fromDataAnnotation = false)
         {
             name = name.NullButNotEmpty();
             if (!entityTypeBuilder.CanSetAnnotation(
@@ -281,7 +295,7 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     <see langword="false" /> for the fluent API.
         /// </param>
         /// <returns><see langword="true" /> if the table name can be set; otherwise <see langword="false" />.</returns>
-        public bool CanSetTable(string? name, bool fromDataAnnotation = false)
+        public bool CanSetDynamoTable(string? name, bool fromDataAnnotation = false)
             => entityTypeBuilder.CanSetAnnotation(
                 DynamoAnnotationNames.TableName,
                 name.NullButNotEmpty(),
@@ -291,12 +305,18 @@ public static class DynamoEntityTypeBuilderExtensions
     extension<TEntity>(EntityTypeBuilder<TEntity> entityTypeBuilder) where TEntity : class
     {
         /// <summary>Configures the table that the entity type maps to when targeting AWS DynamoDB.</summary>
+        /// <remarks>
+        ///     Named <c>ToDynamoTable</c> rather than <c>ToTable</c> so the provider's table mapping
+        ///     stays unambiguous when EF Core Relational's extensions are also in scope, for
+        ///     example through <c>Microsoft.EntityFrameworkCore.Design</c> or the EF Core
+        ///     health-check package.
+        /// </remarks>
         /// <param name="name">
         ///     The table name. Pass <see langword="null" /> to clear the explicit table mapping and
         ///     fall back to convention behavior.
         /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
-        public EntityTypeBuilder<TEntity> ToTable(string? name)
+        public EntityTypeBuilder<TEntity> ToDynamoTable(string? name)
         {
             name.NullButNotEmpty();
             entityTypeBuilder.Metadata.SetOrRemoveAnnotation(DynamoAnnotationNames.TableName, name);

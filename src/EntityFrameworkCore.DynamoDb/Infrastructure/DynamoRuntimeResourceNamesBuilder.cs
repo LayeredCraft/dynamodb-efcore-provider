@@ -13,8 +13,8 @@ namespace EntityFrameworkCore.DynamoDb.Infrastructure;
 ///         <c>HasLogicalTableName</c>. A secondary index's <b>logical index identity</b> is its EF
 ///         index name, the name passed to <c>HasGlobalSecondaryIndex</c> or
 ///         <c>HasLocalSecondaryIndex</c>. The <b>physical resource name</b> of each is the real DynamoDB
-///         name, which <c>ToTable</c> and <c>HasSecondaryIndexName</c> configure in the model and this
-///         builder overrides at runtime.
+///         name, which <c>ToDynamoTable</c> and <c>HasSecondaryIndexName</c> configure in the model
+///         and this builder overrides at runtime.
 ///     </para>
 ///     <para>
 ///         This is an advanced facility for compiled models (for example Native AOT applications

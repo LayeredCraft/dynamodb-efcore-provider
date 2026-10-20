@@ -29,7 +29,7 @@ public class NamingConventionTableDbContext(DbContextOptions options) : DbContex
     {
         modelBuilder.Entity<SnakeCaseItem>(b =>
         {
-            b.ToTable(SnakeCaseItemTable.TableName);
+            b.ToDynamoTable(SnakeCaseItemTable.TableName);
             b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
             // Explicit per-property override — stored as "custom_attr", not "explicit_override"
             b.Property(x => x.ExplicitOverride).HasAttributeName("custom_attr");
@@ -37,7 +37,7 @@ public class NamingConventionTableDbContext(DbContextOptions options) : DbContex
 
         modelBuilder.Entity<KebabCaseItem>(b =>
         {
-            b.ToTable(KebabCaseItemTable.TableName);
+            b.ToDynamoTable(KebabCaseItemTable.TableName);
             b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.KebabCase);
         });
     }

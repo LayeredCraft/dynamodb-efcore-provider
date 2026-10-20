@@ -602,7 +602,7 @@ public sealed class CompiledCollectionContext(DbContextOptions<CompiledCollectio
     {
         modelBuilder.Entity<CompiledCollectionItem>(entity =>
         {
-            DynamoEntityTypeBuilderExtensions.ToTable(entity, "CompiledCollectionItems");
+            DynamoEntityTypeBuilderExtensions.ToDynamoTable(entity, "CompiledCollectionItems");
             entity.HasPartitionKey(item => item.Pk);
             entity
                 .PrimitiveCollection(item => item.ConvertedIds)
@@ -611,7 +611,7 @@ public sealed class CompiledCollectionContext(DbContextOptions<CompiledCollectio
 
         modelBuilder.Entity<CompiledMutableCollectionItem>(entity =>
         {
-            DynamoEntityTypeBuilderExtensions.ToTable(entity, "CompiledCollectionItems");
+            DynamoEntityTypeBuilderExtensions.ToDynamoTable(entity, "CompiledCollectionItems");
             entity.HasPartitionKey(item => item.Pk);
         });
     }

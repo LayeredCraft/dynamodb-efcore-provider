@@ -283,18 +283,18 @@ public class DiscriminatorInheritanceQueryTests(DynamoContainerFixture fixture)
     }
 }
 
-public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(DynamoContainerFixture fixture)
+public class DiscriminatorInheritanceBaseOnlyTableMappingQueryTests(DynamoContainerFixture fixture)
     : SharedTableTestFixture(fixture)
 {
-    private SharedTableInheritanceBaseOnlyToTableDbContext BaseOnlyToTableDb
+    private SharedTableInheritanceBaseOnlyTableMappingDbContext BaseOnlyTableMappingDb
         => new(
-            CreateOptions<SharedTableInheritanceBaseOnlyToTableDbContext>(o
+            CreateOptions<SharedTableInheritanceBaseOnlyTableMappingDbContext>(o
                 => o.DynamoDbClient(Client)));
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task BaseQuery_MaterializesConcreteHierarchyTypes_WhenOnlyBaseConfiguresTable()
     {
-        var results = await BaseOnlyToTableDb
+        var results = await BaseOnlyTableMappingDb
             .People
             .Where(person => person.Pk == "TENANT#H")
             .ToListAsync(CancellationToken);
@@ -320,7 +320,7 @@ public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(DynamoContainerFi
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task DerivedQuery_UsesRootTableMapping_WhenOnlyBaseConfiguresTable()
     {
-        var results = await BaseOnlyToTableDb
+        var results = await BaseOnlyTableMappingDb
             .Employees
             .Where(employee => employee.Pk == "TENANT#H")
             .ToListAsync(CancellationToken);

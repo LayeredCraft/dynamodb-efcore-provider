@@ -29,7 +29,7 @@ public class DynamoResponseShadowPropertyTests
         public DbSet<Item> Items { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<Item>(b => b.ToTable("Items"));
+            => modelBuilder.Entity<Item>(b => b.ToDynamoTable("Items"));
     }
 
     private static ItemContext CreateContext()

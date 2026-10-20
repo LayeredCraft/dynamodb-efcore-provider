@@ -109,7 +109,7 @@ public class ExecuteDeleteTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExecuteDeleteEntity>(builder =>
             {
-                builder.ToTable("ExecuteDeleteTestsTable");
+                builder.ToDynamoTable("ExecuteDeleteTestsTable");
                 builder.HasPartitionKey(item => item.Pk);
                 builder.HasSortKey(item => item.Sk);
             });

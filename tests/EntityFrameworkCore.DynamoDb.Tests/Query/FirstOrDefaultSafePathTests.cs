@@ -553,14 +553,14 @@ public class FirstOrDefaultSafePathTests
         {
             modelBuilder.Entity<PkSkItem>(b =>
             {
-                b.ToTable("PkSkTable");
+                b.ToDynamoTable("PkSkTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
             });
 
             modelBuilder.Entity<PkOnlyItem>(b =>
             {
-                b.ToTable("PkOnlyTable");
+                b.ToDynamoTable("PkOnlyTable");
                 b.HasPartitionKey(x => x.Pk);
                 // No sort key configured.
             });
@@ -647,7 +647,7 @@ public class FirstOrDefaultSafePathTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<NestedPathItem>(b =>
             {
-                b.ToTable("NestedPathTable");
+                b.ToDynamoTable("NestedPathTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
                 b.ComplexProperty(x => x.Profile);
@@ -671,7 +671,7 @@ public class FirstOrDefaultSafePathTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<DeepNestedItem>(b =>
             {
-                b.ToTable("DeepNestedTable");
+                b.ToDynamoTable("DeepNestedTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
                 b.ComplexProperty(x => x.Profile, pb => pb.ComplexProperty(p => p.Address));
@@ -722,7 +722,7 @@ public class FirstOrDefaultSafePathTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GsiItem>(b =>
             {
-                b.ToTable("GsiTable");
+                b.ToDynamoTable("GsiTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
                 // Partition-only GSI: Priority is the GSI PK, no GSI sort key.
@@ -758,7 +758,7 @@ public class FirstOrDefaultSafePathTests
         {
             modelBuilder.Entity<BaseItem>(b =>
             {
-                b.ToTable("InheritanceTable");
+                b.ToDynamoTable("InheritanceTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
             });

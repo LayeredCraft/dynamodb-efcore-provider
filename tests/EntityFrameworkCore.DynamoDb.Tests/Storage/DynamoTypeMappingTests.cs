@@ -195,7 +195,7 @@ public class DynamoTypeMappingTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SerializationEntity>(builder =>
             {
-                builder.ToTable("SerializationItems");
+                builder.ToDynamoTable("SerializationItems");
                 builder.HasPartitionKey(x => x.Pk);
                 builder.HasSortKey(x => x.Sk);
                 builder.Property(x => x.ConvertedGuid).HasConversion<string>();
