@@ -88,6 +88,7 @@ include-labels:
 exclude-labels:
   - 'skip-changelog'
   - 'internal'
+  - 'ef11-only'
 
 template: |
   ## Changes
