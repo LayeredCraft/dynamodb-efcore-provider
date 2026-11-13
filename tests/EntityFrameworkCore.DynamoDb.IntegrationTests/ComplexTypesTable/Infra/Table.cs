@@ -88,3 +88,55 @@ public static class ComplexTypesItemTable
             cancellationToken);
     }
 }
+
+public static class ComplexTypeDiscriminatorTable
+{
+    public const string TableName = "ComplexTypeDiscriminatorItems";
+
+    public static async Task
+        CreateTable(IAmazonDynamoDB dynamoDb, CancellationToken cancellationToken)
+        => await dynamoDb.CreateTableAsync(
+            new CreateTableRequest
+            {
+                TableName = TableName,
+                AttributeDefinitions =
+                [
+                    new AttributeDefinition
+                    {
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S
+                    }
+                ],
+                KeySchema =
+                [
+                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH }
+                ],
+                BillingMode = BillingMode.PAY_PER_REQUEST
+            },
+            cancellationToken);
+}
+
+public static class ProjectionComplexTable
+{
+    public const string TableName = "ProjectionComplexItems";
+
+    public static async Task
+        CreateTable(IAmazonDynamoDB dynamoDb, CancellationToken cancellationToken)
+        => await dynamoDb.CreateTableAsync(
+            new CreateTableRequest
+            {
+                TableName = TableName,
+                AttributeDefinitions =
+                [
+                    new AttributeDefinition
+                    {
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S
+                    }
+                ],
+                KeySchema =
+                [
+                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH }
+                ],
+                BillingMode = BillingMode.PAY_PER_REQUEST
+            },
+            cancellationToken);
+}
