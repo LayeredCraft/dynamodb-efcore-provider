@@ -668,10 +668,17 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
             .Parameter_collection_Count_with_huge_number_of_values_over_5_operations_same_parameter();
 
     [ConditionalFact(Skip = SkipReason.PrimitiveCollectionQueryShapeNotSupported)]
+#if NET11_0_OR_GREATER
+    public override Task
+        Parameter_collection_Count_with_huge_number_of_values_over_2_operations_same_parameter_different_property()
+        => base
+            .Parameter_collection_Count_with_huge_number_of_values_over_2_operations_same_parameter_different_property();
+#else
     public override Task
         Parameter_collection_Count_with_huge_number_of_values_over_2_operations_same_parameter_different_type_mapping()
         => base
             .Parameter_collection_Count_with_huge_number_of_values_over_2_operations_same_parameter_different_type_mapping();
+#endif
 
     [ConditionalFact(Skip = SkipReason.PrimitiveCollectionQueryShapeNotSupported)]
     public override Task
@@ -702,10 +709,17 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
             .Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_5_operations_same_parameter();
 
     [ConditionalFact(Skip = SkipReason.PrimitiveCollectionQueryShapeNotSupported)]
+#if NET11_0_OR_GREATER
+    public override Task
+        Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_2_operations_same_parameter_different_property()
+        => base
+            .Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_2_operations_same_parameter_different_property();
+#else
     public override Task
         Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_2_operations_same_parameter_different_type_mapping()
         => base
             .Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_2_operations_same_parameter_different_type_mapping();
+#endif
 
     [ConditionalFact(Skip = SkipReason.PrimitiveCollectionQueryShapeNotSupported)]
     public override Task

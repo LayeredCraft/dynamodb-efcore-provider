@@ -47,29 +47,29 @@ public abstract class FunkyDataQueryDynamoTest
                     a,
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => c.FirstName.StartsWith("%B"))
+                        .Where(c => c.FirstName!.StartsWith("%B"))
                         .Select(c => c.FirstName),
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith("%B")) == true)
+                        .Where(c => c.FirstName!.MaybeScalar(x => x.StartsWith("%B")) == true)
                         .Select(c => c.FirstName));
 
                 await AssertQuery(
                     a,
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => c.FirstName.StartsWith("_B"))
+                        .Where(c => c.FirstName!.StartsWith("_B"))
                         .Select(c => c.FirstName),
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith("_B")) == true)
+                        .Where(c => c.FirstName!.MaybeScalar(x => x.StartsWith("_B")) == true)
                         .Select(c => c.FirstName));
 
                 await AssertQuery(
                     a,
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => c.FirstName.StartsWith(""))
+                        .Where(c => c.FirstName!.StartsWith(""))
                         .Select(c => c.FirstName),
                     ss => ss
                         .Set<FunkyCustomer>()
@@ -80,29 +80,29 @@ public abstract class FunkyDataQueryDynamoTest
                     a,
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => c.FirstName.StartsWith("_Ba_"))
+                        .Where(c => c.FirstName!.StartsWith("_Ba_"))
                         .Select(c => c.FirstName),
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith("_Ba_")) == true)
+                        .Where(c => c.FirstName!.MaybeScalar(x => x.StartsWith("_Ba_")) == true)
                         .Select(c => c.FirstName));
 
                 await AssertQuery(
                     a,
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => !c.FirstName.StartsWith("%B%a%r"))
+                        .Where(c => !c.FirstName!.StartsWith("%B%a%r"))
                         .Select(c => c.FirstName),
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith("%B%a%r")) != true)
+                        .Where(c => c.FirstName!.MaybeScalar(x => x.StartsWith("%B%a%r")) != true)
                         .Select(c => c.FirstName));
 
                 await AssertQuery(
                     a,
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => !c.FirstName.StartsWith(""))
+                        .Where(c => !c.FirstName!.StartsWith(""))
                         .Select(c => c.FirstName),
                     ss => ss
                         .Set<FunkyCustomer>()
@@ -126,11 +126,11 @@ public abstract class FunkyDataQueryDynamoTest
                     a,
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => c.FirstName.StartsWith(prm1))
+                        .Where(c => c.FirstName!.StartsWith(prm1))
                         .Select(c => c.FirstName),
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith(prm1)) == true)
+                        .Where(c => c.FirstName!.MaybeScalar(x => x.StartsWith(prm1)) == true)
                         .Select(c => c.FirstName));
 
                 var prm2 = "_B";
@@ -138,11 +138,11 @@ public abstract class FunkyDataQueryDynamoTest
                     a,
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => c.FirstName.StartsWith(prm2))
+                        .Where(c => c.FirstName!.StartsWith(prm2))
                         .Select(c => c.FirstName),
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith(prm2)) == true)
+                        .Where(c => c.FirstName!.MaybeScalar(x => x.StartsWith(prm2)) == true)
                         .Select(c => c.FirstName));
 
                 var prm4 = "";
@@ -150,7 +150,7 @@ public abstract class FunkyDataQueryDynamoTest
                     a,
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => c.FirstName.StartsWith(prm4))
+                        .Where(c => c.FirstName!.StartsWith(prm4))
                         .Select(c => c.FirstName),
                     ss => ss
                         .Set<FunkyCustomer>()
@@ -162,11 +162,11 @@ public abstract class FunkyDataQueryDynamoTest
                     a,
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => c.FirstName.StartsWith(prm5))
+                        .Where(c => c.FirstName!.StartsWith(prm5))
                         .Select(c => c.FirstName),
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith(prm5)) == true)
+                        .Where(c => c.FirstName!.MaybeScalar(x => x.StartsWith(prm5)) == true)
                         .Select(c => c.FirstName));
 
                 var prm6 = "%B%a%r";
@@ -174,11 +174,11 @@ public abstract class FunkyDataQueryDynamoTest
                     a,
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => !c.FirstName.StartsWith(prm6))
+                        .Where(c => !c.FirstName!.StartsWith(prm6))
                         .Select(c => c.FirstName),
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith(prm6)) != true)
+                        .Where(c => c.FirstName!.MaybeScalar(x => x.StartsWith(prm6)) != true)
                         .Select(c => c.FirstName));
 
                 var prm7 = "";
@@ -186,7 +186,7 @@ public abstract class FunkyDataQueryDynamoTest
                     a,
                     ss => ss
                         .Set<FunkyCustomer>()
-                        .Where(c => !c.FirstName.StartsWith(prm7))
+                        .Where(c => !c.FirstName!.StartsWith(prm7))
                         .Select(c => c.FirstName),
                     ss => ss
                         .Set<FunkyCustomer>()

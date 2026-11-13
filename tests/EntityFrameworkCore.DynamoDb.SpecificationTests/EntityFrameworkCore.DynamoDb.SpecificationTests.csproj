@@ -5,6 +5,8 @@
     <IsPackable>false</IsPackable>
     <IsAotCompatible>false</IsAotCompatible>
     <IsTestProject>true</IsTestProject>
+    <!-- EF provider pattern: overrides inherit [MemberData] and hide some non-virtual base tests. -->
+    <NoWarn>$(NoWarn);xUnit1003;xUnit1024</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,11 +17,20 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Testcontainers.DynamoDb" />
+  </ItemGroup>
+
+  <!-- EF10 Specification.Tests is built on xUnit v2. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="YTest.MTP.XUnit2" />
+  </ItemGroup>
+
+  <!-- EF11 Specification.Tests is built on xUnit v3 4.x; isolated here so other test projects keep 3.2.2. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
+    <PackageReference Include="xunit.v3.mtp-v2" VersionOverride="4.0.1" />
   </ItemGroup>
 
   <ItemGroup>
