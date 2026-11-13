@@ -232,6 +232,20 @@ Null and missing attribute handling:
     but encoded with the wrong DynamoDB wire shape (for example `S` instead of `M`), materialization
     throws even when the CLR property is nullable. Design your schemas accordingly.
 
+!!! note "Required complex collections"
+
+    A complex collection that EF Core treats as required — for example a non-nullable
+    `List<Address>` in a project with nullable reference types enabled — must be non-null when you
+    call `SaveChangesAsync`. Initialize it to an empty collection. EF Core 10 and 11 report a null
+    required complex collection with a misleading message that names a property and "belongs to the
+    type"; the message is corrected in EF Core 12
+    ([dotnet/efcore#38625](https://github.com/dotnet/efcore/issues/38625)).
+
+!!! note "Complex-type discriminators"
+
+    A discriminator configured on a complex type is persisted only when it is mapped to a CLR
+    property. See [Complex Type Discriminators](../limitations.md#complex-type-discriminators).
+
 ## Relationships vs Complex Types
 
 Use complex types when nested data belongs to the same DynamoDB item and is read or written with

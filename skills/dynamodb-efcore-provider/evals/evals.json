@@ -24,6 +24,12 @@
       "prompt": "Our NativeAOT service manually retains generated EF interceptors. A PK/SK lookup with runtime keys is reported as dynamic, and generation later fails after a source edit. Show the supported query form and safe regeneration sequence.",
       "expected_output": "Shows a single statically visible AOT query chain with local context, scalar values, and cancellation token; explains that scalar parameters are not dynamic and aliases are unnecessary for ordinary JIT queries; and gives the delete-stale-output, build, optimize, rebuild sequence without misdiagnosing a provider limitation.",
       "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "Our API targets net10.0 with EF Core 10. Which EntityFrameworkCore.DynamoDb package should we install, and what command should we run? We also want precompiled queries.",
+      "expected_output": "Recommends the 10.x line with an explicit --version, explains that 11.x requires net11.0/EF Core 11 and that an unversioned install selects 11.x, and aligns Microsoft.EntityFrameworkCore.Tasks and Design to the same 10.0.x EF Core version.",
+      "files": []
     }
   ]
 }

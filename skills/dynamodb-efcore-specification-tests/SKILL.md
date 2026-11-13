@@ -53,6 +53,22 @@ triage failures with evidence.
 - Cosmos provider source: `~/Repos/CSharp/efcore/src/EFCore.Cosmos/`
 - MongoDB provider/tests: `~/Repos/CSharp/mongo-efcore-provider/`
 
+## Target frameworks and xUnit versions
+
+The spec project runs xUnit v2 on `net10.0` (EF Core 10 Specification.Tests) and xUnit v3 4.x on
+`net11.0` (EF Core 11 Specification.Tests). Read
+`tests/EntityFrameworkCore.DynamoDb.SpecificationTests/AGENTS.md` before editing. Key rules:
+
+- `[ConditionalFact]`/`[ConditionalTheory]` are global aliases to `Fact`/`Theory` on `net11.0`; do
+  not add a `FactAttribute` subclass (xUnit v3 rejects multiple fact attributes).
+- Override guards compare against `typeof(FactAttribute)`; keep them TFM-neutral.
+- Isolate EF Core 11 API drift and GA-only base tests with `#if NET11_0`; EF10 counts must not
+  change when only EF11 is targeted.
+- xUnit v3 reports a skipped `[Theory]` once rather than once per data row, so net11 totals are
+  not comparable row-for-row with net10.
+- Every fixture must use a unique physical table name; fixtures sharing a name with different key
+  schemas collide.
+
 ## Implementation workflow
 
 1. Identify the target base spec class or existing DynamoDB spec class from the user request and
@@ -409,27 +425,27 @@ must agree.
 
 ## Commands
 
-Use the .NET test MCP server when available. CLI fallback focused class/method:
+Use the .NET test MCP server when available. CLI fallback (build once per framework, then filter):
 
 ```bash
-task test:spec FRAMEWORK=net10.0 FILTER="FullyQualifiedName~ClassOrMethod"
+SPEC=tests/EntityFrameworkCore.DynamoDb.SpecificationTests/EntityFrameworkCore.DynamoDb.SpecificationTests.csproj
+dotnet build $SPEC --framework net10.0
+dotnet build $SPEC --framework net11.0
+
+# net11.0 — xUnit v3: wildcard class/method filters
+dotnet test --project $SPEC --framework net11.0 --no-build --filter-class "*FindDynamoTest*"
+dotnet test --project $SPEC --framework net11.0 --no-build --filter-class "*ComplianceDynamoTest*"
+
+# net10.0 — xUnit v2 through YTest.MTP.XUnit2: VSTest-style filter
+dotnet test --project $SPEC --framework net10.0 --no-build --filter "FullyQualifiedName~FindDynamoTest"
+dotnet test --project $SPEC --framework net10.0 --no-build --filter "FullyQualifiedName~ComplianceDynamoTest"
 ```
 
-Compliance inventory:
+Full suites (whole solution, includes the spec project): `task test:ef10` and `task test:ef11`.
+Always validate spec changes on both frameworks; overrides and skips can differ by target.
 
-```bash
-task test:spec FRAMEWORK=net10.0 FILTER="FullyQualifiedName~ComplianceDynamoTest"
-```
-
-Full spec project when practical:
-
-```bash
-task test:spec:all
-```
-
-When debugging query baselines, inspect assertion failures and captured `PartiQL baseline mismatch`
-text. The current runner may not support older xUnit live-output switches such as
-`--show-live-output`; use `--output Detailed` only if supported by `dotnet test --help`.
+When debugging query baselines, inspect assertion failures and captured `PartiQL baseline mismatch` text. Check `dotnet test --project $SPEC --framework <tfm> --help` for the live-output
+options each runner supports.
 
 ## Done means
 

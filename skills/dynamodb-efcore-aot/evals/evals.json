@@ -14,7 +14,7 @@
     {
       "id": 3,
       "prompt": "Verify this branch really supports NativeAOT for EF10 and EF11 before merge.",
-      "expected_output": "Runs both generated-interceptor configurations, publishes and launches the EF10 native smoke app, runs both full suites, and reports remaining AOT warnings accurately."
+      "expected_output": "Runs both generated-interceptor configurations, publishes and runs the NativeAOT runtime tests for net10.0 and net11.0, runs both full suites, and reports remaining AOT warnings accurately."
     },
     {
       "id": 4,

@@ -14,21 +14,36 @@ _Use EF Core's familiar LINQ API against Amazon DynamoDB. Queries are translated
 
     This is an independent, community-maintained library. It is not affiliated with, endorsed by, or supported by Amazon Web Services or Microsoft.
 
-## Requirements
+## Supported versions
 
-| Dependency        | Version      |
-| ----------------- | ------------ |
-| .NET              | 10.0+        |
-| EF Core           | 10.0+        |
-| AWSSDK.DynamoDBv2 | (transitive) |
+| Provider package                    | Target framework | EF Core | .NET    |
+| ----------------------------------- | ---------------- | ------- | ------- |
+| `EntityFrameworkCore.DynamoDb` 10.x | `net10.0`        | 10.0.x  | .NET 10 |
+| `EntityFrameworkCore.DynamoDb` 11.x | `net11.0`        | 11.0.x  | .NET 11 |
+
+Each package targets one framework and one EF Core major version. Match the provider's major
+version to your EF Core major version: 11.x packages cannot be installed in a `net10.0` project,
+and 10.x packages do not support EF Core 11. The exact EF Core range is listed on each package's
+NuGet page — for example, 10.2.0 requires EF Core 10.0.14 or later 10.0.x, and 11.0.0 requires
+EF Core 11.0.0 or later 11.0.x.
 
 ## Install
 
 ```bash
-dotnet add package EntityFrameworkCore.DynamoDb
+# .NET 10 / EF Core 10
+dotnet add package EntityFrameworkCore.DynamoDb --version 10.2.0
+
+# .NET 11 / EF Core 11
+dotnet add package EntityFrameworkCore.DynamoDb --version 11.0.0
 ```
 
-See [Getting Started](getting-started.md) for full setup instructions.
+Use the latest release of the line that matches your EF Core version. Always pass `--version` on
+.NET 10: without it, NuGet selects the newest stable package, which is an 11.x package that cannot
+be installed in a `net10.0` project. Packages with a `-preview` suffix are CI builds from `main`;
+do not use them in production.
+
+See [Choose a package version](getting-started.md#choose-a-package-version) for central package
+management and multi-targeted projects.
 
 ## Quick Example
 

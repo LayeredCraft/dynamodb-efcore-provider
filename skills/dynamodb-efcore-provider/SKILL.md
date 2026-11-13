@@ -29,6 +29,9 @@ against `https://dynamodb-ef-core.layeredcraft.dev/`.
 
 ## Rules that avoid unsafe advice
 
+- Match the provider's major version to EF Core's: 10.x for `net10.0`/EF Core 10, 11.x for
+  `net11.0`/EF Core 11. Always give an explicit `--version`; never suggest an 11.x package or a
+  `-preview` package for a .NET 10 application. See `references/setup.md`.
 - DynamoDB is not relational: no joins, foreign-key behavior, offset paging, or general server-side
   aggregates. Check the querying reference before promising LINQ support.
 - Database queries are async-only. Use `ToListAsync`, `FindAsync`, `ToPageAsync`, or async

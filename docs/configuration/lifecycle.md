@@ -71,8 +71,14 @@ ASP.NET Core applications can register the standard EF Core health check for a D
 Add the EF health-check package that matches the application's EF Core version:
 
 ```shell
-dotnet add package Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore
+# .NET 10 / EF Core 10
+dotnet add package Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore --version 10.0.14
+
+# .NET 11 / EF Core 11
+dotnet add package Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore --version 11.0.0
 ```
+
+Use the patch version that matches your other EF Core packages.
 
 The provider names its table-mapping method `ToDynamoTable` so it stays unambiguous when EF Core
 Relational's `ToTable` extension is also in scope, for example through the health-check package or
