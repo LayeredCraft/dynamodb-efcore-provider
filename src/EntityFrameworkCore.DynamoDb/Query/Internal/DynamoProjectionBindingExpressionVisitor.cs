@@ -467,6 +467,11 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
                     && complexProjection.ComplexProperty.ComplexType.FindProperty(propertyName) is
                         { } nestedProperty)
                 {
+                    // Shadow properties (notably a complex-type discriminator) have no CLR member
+                    // for GetMemberInfo; leave them untranslated instead of throwing.
+                    if (nestedProperty.IsShadowProperty())
+                        return QueryCompilationContext.NotTranslatedExpression;
+
                     var memberAccess = Expression.MakeMemberAccess(
                         complexProjection,
                         DynamoEntityProjectionExpression.GetMemberInfo(nestedProperty));
