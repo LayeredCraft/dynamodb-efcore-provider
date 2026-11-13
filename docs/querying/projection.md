@@ -74,7 +74,7 @@ Entity properties typed as collections materialize from DynamoDB set and list at
 
 Interface-typed properties receive a concrete instance that implements the declared interface. Collection properties are selected and deserialized when materializing full entities.
 
-Projection-only shaping for primitive collection values is narrower than full entity materialization. Directly shaping a primitive collection as the top-level query result, such as `Select(e => e.Tags)` or `Select(e => e.Tags.ToList())`, is not currently supported. DTO or anonymous projections that include primitive collection properties are also not currently supported. Project an entity, or materialize entities first and select the collection client-side.
+Anonymous-type and DTO projections can include primitive collection properties, including a primitive collection nested in a complex property; the query projects the top-level attribute and the collection is shaped client-side. When an optional complex property is `null`, a nested collection projected through it is `null`. Directly shaping a primitive collection as the top-level query result, such as `Select(e => e.Tags)` or `Select(e => e.Tags.ToList())`, is not currently supported; project it inside an anonymous type or DTO instead.
 
 ## Complex Property Projections
 

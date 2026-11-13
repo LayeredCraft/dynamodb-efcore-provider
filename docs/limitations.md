@@ -19,7 +19,14 @@ NativeAOT publishing can report trimming and dynamic-code warnings from EF Core,
 provider paths outside query execution. The provider's NativeAOT test build allows those warnings while AOT
 support remains experimental; a warning-free trimmed application is not yet guaranteed.
 
-CI publishes and runs the NativeAOT runtime test project for both EF Core 10 and EF Core 11.
+The provider validates query-interceptor generation for EF Core 10 and EF Core 11, and publishes
+and runs a NativeAOT test application for both on `linux-x64` before every release. Other runtime
+identifiers are not validated by the provider.
+
+On macOS arm64, publishing an EF Core 11 NativeAOT application has been observed to fail inside
+EF Core 11.0.0's query-precompilation build step, before provider code runs. Linux publishing is
+not affected. Until this is resolved, publish EF Core 11 NativeAOT applications on Linux — for
+example in a Linux container or CI runner. EF Core 10 publishing on macOS arm64 is not affected.
 
 The tested native path supports scalar entity properties, including nullable numbers, Boolean,
 binary, configured scalar conversions, and one-dimensional arrays with non-nullable elements.
@@ -87,7 +94,8 @@ Precompiled queries that materialize entities containing complex properties and 
 NativeAOT, query these entities with `AsNoTracking()`: EF Core's compiled model does not yet include
 the value factories its change tracker needs for complex collections, so a tracked query fails at
 runtime with "Model building is not supported when publishing with NativeAOT" (tracked upstream:
-[dotnet/efcore#37750](https://github.com/dotnet/efcore/issues/37750)). On EF Core 10, that
+[dotnet/efcore#37750](https://github.com/dotnet/efcore/issues/37750), fixed for EF Core 12; it still
+applies to EF Core 10 and 11). On EF Core 10, that
 requirement runs into the precompiled no-tracking limitation above for any entity type declared in
 a normal namespace.
 
@@ -118,6 +126,15 @@ mappings of primitive collections, for example `Contains` over a `List<T>` attri
 value whose type mapping is not associated with any mapped property fails at precompile time with
 an `InvalidOperationException` instead of silently deferring the failure to first query execution,
 where it would use reflection that is not supported under NativeAOT.
+
+### Upstream EF Core issues affecting NativeAOT
+
+| Issue                                                                | Effect                                                              | Status              |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------- |
+| [dotnet/efcore#38962](https://github.com/dotnet/efcore/issues/38962) | `ToPageAsync` is not precompiled                                    | Open                |
+| [dotnet/efcore#38955](https://github.com/dotnet/efcore/issues/38955) | Multi-targeted projects cannot generate                             | Open                |
+| [dotnet/efcore#38951](https://github.com/dotnet/efcore/issues/38951) | Non-default build configurations cannot generate                    | Open                |
+| [dotnet/efcore#37750](https://github.com/dotnet/efcore/issues/37750) | Tracked queries over complex collections fail; use `AsNoTracking()` | Fixed in EF Core 12 |
 
 See [Precompiled Queries and NativeAOT](querying/precompiled-queries.md) for supported setup and
 verification.
@@ -566,7 +583,8 @@ The provider does not implement EF Core's complex-type discriminator null semant
 a null discriminator value does not cause the complex type to materialize as `null`; materialization
 follows the stored complex map (a stored map materializes a complex value, and a stored null map
 materializes `null`). This is an incomplete provider implementation, not a DynamoDB platform
-limitation, and is tracked by bead `dynamodb-efcore-provider-ar2.6`.
+limitation. Use a CLR-mapped discriminator, or model optionality on the complex property itself,
+when a null complex value must round-trip.
 
 ## Behavioral Differences from Standard EF Core
 
@@ -629,10 +647,10 @@ through to DynamoDB and lets DynamoDB apply the service semantics for the specif
 `AsNoTracking()`. The `ExecuteStatementResponse` is stored in a shadow property that only exists
 on tracked entity entries. See [Diagnostics and Logging](diagnostics.md#response-metadata).
 
-### Owned Types in `Select` Project the Full Container
+### Nested Complex Paths in `Select` Project the Full Container
 
-Accessing a nested owned property path in a `Select` projection
-(`x.Profile.Address.City`) triggers client-side extraction: the full owned container attribute
+Accessing a nested complex property path in a `Select` projection
+(`x.Profile.Address.City`) triggers client-side extraction: the full complex container attribute
 (`"Profile"`) is fetched from DynamoDB and the nested value is read in-process. The path does
 translate server-side in `Where` predicates.
 

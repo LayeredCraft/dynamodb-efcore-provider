@@ -1,7 +1,6 @@
 # Multi-Version EF Core Support: MongoDB Provider Analysis & DynamoDB Strategy
 
-> **Superseded**: this repo has since moved from the custom `Debug EF10`/`Release EF10`/`Debug
-> EF11`/`Release EF11` configuration scheme described below to standard `Configuration`
+> **Superseded**: this repo has since moved from the custom `Debug EF10`/`Release EF10`/`Debug EF11`/`Release EF11` configuration scheme described below to standard `Configuration`
 > (`Debug`/`Release`) plus standard `<TargetFrameworks>net10.0;net11.0</TargetFrameworks>`
 > multi-targeting, with a generated physical `TargetFrameworkOverride.props` file for
 > version-specific NativeAOT/release operations. In particular, §4.1's claim that "standard
@@ -12,6 +11,8 @@
 > `docs/internal/ef10-ef11-build-configuration-strategy-research.md` for the current architecture
 > and the evidence. The MongoDB-provider comparison and EF8/EF9/EF10 API-difference analysis below
 > remain accurate background reading; only the "recommended strategy" in Part 4 is superseded.
+>
+> Consumer install guidance in §5 is also superseded: NuGet does not choose a major version by target framework; see Getting Started → Choose a package version.
 
 ## Overview
 

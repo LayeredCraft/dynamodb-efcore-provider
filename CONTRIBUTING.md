@@ -4,7 +4,7 @@ Thanks for helping improve EntityFrameworkCore.DynamoDb. Start with the [README]
 
 ## Prerequisites
 
-- .NET SDK 10.0.x. `global.json` pins `10.0.103` with latest-minor roll-forward.
+- .NET SDK 11.0.x, which builds both the `net10.0` and `net11.0` targets. `global.json` selects the Microsoft.Testing.Platform runner and does not pin an SDK.
 - [Go](https://go.dev/doc/install), used to install the `format` CLI.
 - [uv](https://docs.astral.sh/uv/), used by Markdown formatting and docs commands. No separate Python install is required.
 - Docker or another Testcontainers-compatible runtime for integration tests.
