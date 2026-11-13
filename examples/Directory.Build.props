@@ -3,6 +3,14 @@
        hook needs its own copy here too. See Directory.Build.props for the full explanation. -->
   <Import Project="$(MSBuildThisFileDirectory)..\TargetFrameworkOverride.props"
           Condition="Exists('$(MSBuildThisFileDirectory)..\TargetFrameworkOverride.props')" />
+  <!-- Same guard as the repo-root Directory.Build.props: ignore the reusable workflow's leaked
+       `outputPath` environment variable without overriding an explicit `-p:OutputPath=...`. -->
+  <PropertyGroup>
+    <_LeakedOutputPath>$([System.Environment]::GetEnvironmentVariable('outputPath'))</_LeakedOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OutputPath)' != '' and '$(OutputPath)' == '$(_LeakedOutputPath)'">
+    <OutputPath></OutputPath>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">
     <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
   </PropertyGroup>

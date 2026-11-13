@@ -134,3 +134,49 @@ public sealed record ShapeAddress
 {
     public string City { get; set; } = null!;
 }
+
+/// <summary>Root entity for the complex-type discriminator persistence scenario.</summary>
+public sealed record DiscriminatorItem
+{
+    public string Pk { get; set; } = null!;
+
+    public DiscriminatedValue? OptionalComplex { get; set; }
+}
+
+/// <summary>Optional complex type configured with an EF Core discriminator.</summary>
+public record DiscriminatedValue
+{
+    public string? OptionalProperty { get; set; }
+}
+
+/// <summary>Root entity for the CLR-mapped complex-type discriminator persistence scenario.</summary>
+public sealed record ClrDiscriminatorItem
+{
+    public string Pk { get; set; } = null!;
+
+    public ClrDiscriminatedValue? OptionalComplex { get; set; }
+}
+
+/// <summary>Optional complex type whose discriminator maps to a CLR property.</summary>
+public record ClrDiscriminatedValue
+{
+    public string Kind { get; set; } = null!;
+
+    public string? OptionalProperty { get; set; }
+}
+
+/// <summary>Root entity for projecting a primitive collection inside an optional complex type.</summary>
+public sealed record ProjectionComplexItem
+{
+    public string Pk { get; set; } = null!;
+
+    public ProjectionComplex? OptionalComplex { get; set; }
+}
+
+/// <summary>Optional complex type containing a primitive collection.</summary>
+public sealed record ProjectionComplex
+{
+    public string Name { get; set; } = null!;
+
+    public List<int> Ints { get; set; } = [];
+}

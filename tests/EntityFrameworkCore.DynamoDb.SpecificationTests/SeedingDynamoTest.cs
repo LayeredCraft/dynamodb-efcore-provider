@@ -14,9 +14,19 @@ public abstract class SeedingDynamoTest : SeedingTestBase, IAsyncLifetime
 
     protected override TestStore TestStore => _testStore;
 
+#if NET11_0_OR_GREATER
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
+#else
     public Task InitializeAsync() => Task.CompletedTask;
+#endif
 
-    public async Task DisposeAsync() => await _testStore.DisposeAsync().ConfigureAwait(false);
+#if NET11_0_OR_GREATER
+    public async ValueTask DisposeAsync() =>
+#else
+    public async Task DisposeAsync()
+        =>
+#endif
+            await _testStore.DisposeAsync().ConfigureAwait(false);
 
     [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     [InlineData(false)]

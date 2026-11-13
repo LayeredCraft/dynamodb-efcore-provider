@@ -161,11 +161,19 @@ internal sealed class EntityWritePlan(
         /// <summary>Creates a write plan for the given complex type.</summary>
         public static ComplexTypeWritePlan Create(IComplexType complexType)
         {
+            var discriminatorProperty = complexType.FindDiscriminatorProperty();
             var scalarWriters = new List<ComplexScalarWriteAction>();
             foreach (var property in complexType.GetProperties())
             {
                 if (property.IsRuntimeOnly())
                     continue;
+
+                // Shadow discriminators have no CLR member, so the provider does not persist them.
+                // A discriminator mapped to a CLR property is a normal persisted complex member.
+                if (ReferenceEquals(property, discriminatorProperty) && property.IsShadowProperty())
+                {
+                    continue;
+                }
 
                 scalarWriters.Add(
                     new ComplexScalarWriteAction(

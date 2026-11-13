@@ -101,3 +101,73 @@ public abstract class ComplexTypesTableTestFixture : DynamoTestFixtureBase
             new PutItemRequest { TableName = ComplexTypesItemTable.TableName, Item = item },
             cancellationToken);
 }
+
+public abstract class ComplexTypeDiscriminatorTableTestFixture : DynamoTestFixtureBase
+{
+    protected ComplexTypeDiscriminatorTableTestFixture(DynamoContainerFixture fixture) :
+        base(fixture)
+        => EnsureClassTableInitialized(
+            ComplexTypeDiscriminatorTable.TableName,
+            ComplexTypeDiscriminatorTable.CreateTable);
+
+    protected TestPartiQlLoggerFactory LoggerFactory => SqlCapture;
+
+    public ComplexTypeDiscriminatorDbContext Db
+    {
+        get
+        {
+            field ??= CreateContext();
+            return field;
+        }
+    }
+
+    protected ComplexTypeDiscriminatorDbContext CreateContext()
+        => new(
+            CreateOptions<ComplexTypeDiscriminatorDbContext>(options
+                => options.DynamoDbClient(Client)));
+}
+
+public abstract class ClrDiscriminatorTableTestFixture : DynamoTestFixtureBase
+{
+    protected ClrDiscriminatorTableTestFixture(DynamoContainerFixture fixture) : base(fixture)
+        => EnsureClassTableInitialized(
+            ClrDiscriminatorTable.TableName,
+            ClrDiscriminatorTable.CreateTable);
+
+    protected TestPartiQlLoggerFactory LoggerFactory => SqlCapture;
+
+    public ClrDiscriminatorDbContext Db
+    {
+        get
+        {
+            field ??= CreateContext();
+            return field;
+        }
+    }
+
+    protected ClrDiscriminatorDbContext CreateContext()
+        => new(CreateOptions<ClrDiscriminatorDbContext>(options => options.DynamoDbClient(Client)));
+}
+
+public abstract class ProjectionComplexTableTestFixture : DynamoTestFixtureBase
+{
+    protected ProjectionComplexTableTestFixture(DynamoContainerFixture fixture) : base(fixture)
+        => EnsureClassTableInitialized(
+            ProjectionComplexTable.TableName,
+            ProjectionComplexTable.CreateTable);
+
+    protected TestPartiQlLoggerFactory LoggerFactory => SqlCapture;
+
+    public ProjectionComplexDbContext Db
+    {
+        get
+        {
+            field ??= CreateContext();
+            return field;
+        }
+    }
+
+    protected ProjectionComplexDbContext CreateContext()
+        => new(
+            CreateOptions<ProjectionComplexDbContext>(options => options.DynamoDbClient(Client)));
+}

@@ -12,6 +12,17 @@ public static class SkipReason
     public const string QueryShapeNotSupported =
         "DynamoDB provider does not support this query shape.";
 
+    public const string ServerSideSingleScanNotSupported =
+        "DynamoDB provider rejects server-side Single/SingleOrDefault on scan-like paths (no partition-key equality or IN); select client-side via AsAsyncEnumerable() instead.";
+
+    public const string KeyPropertiesInsideComplexTypesNotSupported =
+        "DynamoDB table keys must be top-level scalar attributes; the provider does not support a partition or sort key nested inside an EF Core complex type.";
+
+    public const string ComplexTypeDiscriminatorNullSemanticsNotSupported =
+        "DynamoDB provider gap (dynamodb-efcore-provider-ar2.6): a complex type's discriminator "
+        + "value is not used to materialize the complex type as null. This is incomplete provider "
+        + "support, not a DynamoDB platform limitation.";
+
     public const string GuidNewGuidPredicateNotSupported =
         "DynamoDB provider does not translate Guid.NewGuid() in server-side predicates.";
 

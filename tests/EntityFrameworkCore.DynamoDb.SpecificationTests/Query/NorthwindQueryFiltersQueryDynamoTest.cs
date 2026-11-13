@@ -77,6 +77,21 @@ public abstract class NorthwindQueryFiltersQueryDynamoTest
     [ConditionalTheory(Skip = SkipReason.NavigationPropertiesNotSupported)]
     public override Task Entity_Equality(bool async) => base.Entity_Equality(async);
 
+#if !NET10_0
+    [ConditionalTheory(Skip = SkipReason.GroupByNotSupported)]
+    public override Task GroupBy_aggregate_through_filtered_navigation(bool async)
+        => base.GroupBy_aggregate_through_filtered_navigation(async);
+
+    [ConditionalTheory(Skip = SkipReason.GroupByNotSupported)]
+    public override Task GroupBy_aggregate_through_filtered_navigation_with_total(bool async)
+        => base.GroupBy_aggregate_through_filtered_navigation_with_total(async);
+
+    [ConditionalTheory(Skip = SkipReason.GroupByNotSupported)]
+    public override Task
+        GroupBy_aggregate_through_filtered_navigation_ignore_query_filters(bool async)
+        => base.GroupBy_aggregate_through_filtered_navigation_ignore_query_filters(async);
+#endif
+
     private static Task NoSyncTest(bool async, Func<bool, Task> testCode)
         => DynamoTestHelpers.Instance.NoSyncTest(async, testCode);
 

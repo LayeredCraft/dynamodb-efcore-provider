@@ -7,16 +7,30 @@ those tests run against a real DynamoDB Local instance.
 
 ## Shared Infrastructure
 
-| File                                                   | Role                                                                                                                         |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| `TestUtilities/DynamoSpecificationContainerFixture.cs` | Shared DynamoDB Local container (Testcontainers). Started asynchronously by spec test infrastructure and disposed after use. |
-| `TestUtilities/DynamoTestStoreFactory.cs`              | Singleton factory. Plugs into EF Core test infra; vends `DynamoTestStore` and `TestSqlLoggerFactory`.                        |
-| `TestUtilities/DynamoTestStore.cs`                     | Per-test store backed by the shared container client.                                                                        |
-| `TestUtilities/TestSqlLoggerFactory.cs`                | Captures emitted PartiQL via `DynamoEventId.ExecutingPartiQlQuery` for baseline assertions.                                  |
-| `TestUtilities/DynamoTestHelpers.cs`                   | `NoSyncTest()` helper — catches expected sync-query failures.                                                                |
-| `TestUtilities/DynamoSpecificationFixture.cs`          | `IDynamoSpecificationFixture` interface + `ClearSql`/`AssertSql`/`ShouldLogDynamoSql` extensions shared by all fixtures.     |
-| `AssemblyFixtures.cs`                                  | Disables test parallelization assembly-wide.                                                                                 |
-| `DynamoSpecificationCollection`                        | xUnit collection fixture used by concrete spec test classes that need DynamoDB Local.                                        |
+| File                                                   | Role                                                                                                                                  |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `TestUtilities/DynamoSpecificationContainerFixture.cs` | Shared DynamoDB Local container (Testcontainers). Started asynchronously by spec test infrastructure and disposed after use.          |
+| `TestUtilities/DynamoTestStoreFactory.cs`              | Singleton factory. Plugs into EF Core test infra; vends `DynamoTestStore` and `TestSqlLoggerFactory`.                                 |
+| `TestUtilities/DynamoTestStore.cs`                     | Per-test store backed by the shared container client.                                                                                 |
+| `TestUtilities/TestSqlLoggerFactory.cs`                | Captures emitted PartiQL via `DynamoEventId.ExecutingPartiQlQuery` for baseline assertions.                                           |
+| `TestUtilities/DynamoTestHelpers.cs`                   | `NoSyncTest()` helper — catches expected sync-query failures.                                                                         |
+| `TestUtilities/DynamoSpecificationFixture.cs`          | `IDynamoSpecificationFixture` interface + `ClearSql`/`AssertSql`/`ShouldLogDynamoSql` extensions shared by all fixtures.              |
+| `AssemblyFixtures.cs`                                  | xUnit v2 (net10.0) only: disables test parallelization assembly-wide.                                                                 |
+| `TestUtilities/XunitV3Compatibility.cs`                | xUnit v3 (net11.0) only: global using aliases mapping `ConditionalFactAttribute`/`ConditionalTheoryAttribute` to xUnit v3 attributes. |
+| `DynamoSpecificationCollection`                        | xUnit collection fixture used by concrete spec test classes that need DynamoDB Local.                                                 |
+
+## Target Frameworks and xUnit Versions
+
+- **net10.0 (EF10)** runs on xUnit v2. `AssemblyFixtures.cs` disables parallelization assembly-wide.
+- **net11.0 (EF11)** runs on xUnit v3 (`xunit.v3.mtp-v2`). `xunit.runner.json` sets
+    `"parallelizeTestCollections": false`, and `XunitV3Compatibility.cs` aliases the
+    `ConditionalFact`/`ConditionalTheory` attributes.
+- On xUnit v3, a skipped `[Theory]` is reported as a single skipped entry rather than one per data
+    row, so EF11 run totals are lower than the equivalent EF10 totals.
+- Fixtures share a single DynamoDB Local instance. Every fixture table name must be unique across
+    the whole specification project; two fixtures using the same table name with different key shapes
+    corrupt each other's schema when collections run concurrently. Use provider-specific table names
+    (for example `ComplexTypeCustomers`) instead of reusing Northwind table names.
 
 ## Adding a New Specification Test
 
@@ -91,15 +105,15 @@ files in the same change:
 
 1. `tests/EntityFrameworkCore.DynamoDb.SpecificationTests/ComplianceDynamoTest.cs`
 
-   - Add the EF Core spec base type to `GetBaseTestClasses()` when a concrete DynamoDB test exists.
-   - Use the upstream base type, e.g. `ValueConvertersEndToEndTestBase<>`, not the DynamoDB concrete test type.
-   - Remove entries only when the provider implementation is removed.
+    - Add the EF Core spec base type to `GetBaseTestClasses()` when a concrete DynamoDB test exists.
+    - Use the upstream base type, e.g. `ValueConvertersEndToEndTestBase<>`, not the DynamoDB concrete test type.
+    - Remove entries only when the provider implementation is removed.
 
-2. `docs/spec-test-coverage.md`
+1. `docs/spec-test-coverage.md`
 
-   - Move the spec base between `Implemented`, `Implement Next`, `Future`, or `Skip` as status changes.
-   - Keep method counts and notes accurate.
-   - Mention DynamoDB-specific limitations or fixture adaptations in user-facing terms.
+    - Move the spec base between `Implemented`, `Implement Next`, `Future`, or `Skip` as status changes.
+    - Keep method counts and notes accurate.
+    - Mention DynamoDB-specific limitations or fixture adaptations in user-facing terms.
 
 These files are compliance/documentation inventory. Keep them synchronized so `ComplianceDynamoTest`
 and the coverage docs tell the same story.

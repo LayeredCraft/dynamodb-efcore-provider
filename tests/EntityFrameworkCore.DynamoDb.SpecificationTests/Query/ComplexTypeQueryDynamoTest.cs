@@ -60,7 +60,7 @@ public abstract class ComplexTypeQueryDynamoTest
                 AssertSql(
                     """
                     SELECT "shippingAddress"
-                    FROM "Customers"
+                    FROM "ComplexTypeCustomers"
                     """);
             });
 
@@ -73,7 +73,7 @@ public abstract class ComplexTypeQueryDynamoTest
                 AssertSql(
                     """
                     SELECT "shippingAddress"
-                    FROM "Customers"
+                    FROM "ComplexTypeCustomers"
                     """);
             });
 
@@ -86,7 +86,7 @@ public abstract class ComplexTypeQueryDynamoTest
                 AssertSql(
                     """
                     SELECT "shippingAddress"
-                    FROM "Customers"
+                    FROM "ComplexTypeCustomers"
                     """);
             });
 
@@ -99,7 +99,7 @@ public abstract class ComplexTypeQueryDynamoTest
                 AssertSql(
                     """
                     SELECT "shippingAddress"
-                    FROM "Customers"
+                    FROM "ComplexTypeCustomers"
                     WHERE "shippingAddress"."zipCode" = 7728
                     """);
             });
@@ -117,7 +117,7 @@ public abstract class ComplexTypeQueryDynamoTest
                 AssertSql(
                     """
                     SELECT "id", "$type", "name", "billingAddress", "optionalAddress", "shippingAddress"
-                    FROM "Customers"
+                    FROM "ComplexTypeCustomers"
                     WHERE "shippingAddress" = "billingAddress"
                     """);
             });
@@ -131,7 +131,7 @@ public abstract class ComplexTypeQueryDynamoTest
                 AssertSql(
                     """
                     SELECT "id", "$type", "name", "billingAddress", "optionalAddress", "shippingAddress"
-                    FROM "Customers"
+                    FROM "ComplexTypeCustomers"
                     WHERE "shippingAddress" = ?
                     """);
             });
@@ -145,10 +145,17 @@ public abstract class ComplexTypeQueryDynamoTest
                 AssertSql(
                     """
                     SELECT "id", "$type", "name", "billingAddress", "optionalAddress", "shippingAddress"
-                    FROM "Customers"
+                    FROM "ComplexTypeCustomers"
                     WHERE "shippingAddress" = ?
                     """);
             });
+
+#if !NET10_0
+    [ConditionalFact(Skip = SkipReason.ServerSideSingleScanNotSupported)]
+    public override async Task
+        Complex_type_equals_parameter_with_nested_types_with_property_of_same_name()
+        => await base.Complex_type_equals_parameter_with_nested_types_with_property_of_same_name();
+#endif
 
     [ConditionalTheory(Skip = SkipReason.ComplexTypeSubqueriesNotSupported)]
     public override Task Subquery_over_complex_type(bool async)
@@ -500,6 +507,79 @@ public abstract class ComplexTypeQueryDynamoTest
     public override Task Project_entity_with_complex_type_pushdown_and_then_left_join(bool async)
         => base.Project_entity_with_complex_type_pushdown_and_then_left_join(async);
 
+#if !NET10_0
+    [ConditionalFact(Skip = SkipReason.OwnedEntityTypesNotSupported)]
+    public override async Task Projecting_complex_property_does_not_auto_include_owned_types()
+        => await base.Projecting_complex_property_does_not_auto_include_owned_types();
+
+    [ConditionalFact(Skip = SkipReason.ServerSideSingleScanNotSupported)]
+    public override async Task Optional_complex_type_with_discriminator()
+        => await base.Optional_complex_type_with_discriminator();
+
+    [ConditionalFact(Skip = SkipReason.ServerSideSingleScanNotSupported)]
+    public override async Task Non_optional_complex_type_with_all_nullable_properties()
+        => await base.Non_optional_complex_type_with_all_nullable_properties();
+
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
+    public override async Task
+        Non_optional_complex_type_with_all_nullable_properties_via_left_join()
+        => await base.Non_optional_complex_type_with_all_nullable_properties_via_left_join();
+
+    public override async Task Nullable_complex_type_with_discriminator_and_shadow_property()
+        => await base.Nullable_complex_type_with_discriminator_and_shadow_property();
+
+    [ConditionalFact(Skip = SkipReason.ServerSideSingleScanNotSupported)]
+    public override async Task Nullable_complex_type_with_discriminator_null_to_non_null_roundtrip()
+        => await base.Nullable_complex_type_with_discriminator_null_to_non_null_roundtrip();
+
+    [ConditionalFact(Skip = SkipReason.ServerSideSingleScanNotSupported)]
+    public override async Task Nullable_complex_type_with_discriminator_non_null_to_null_roundtrip()
+        => await base.Nullable_complex_type_with_discriminator_non_null_to_null_roundtrip();
+
+    [ConditionalFact(Skip = SkipReason.ServerSideSingleScanNotSupported)]
+    public override async Task
+        Nullable_complex_type_with_discriminator_update_non_null_entity_roundtrip()
+        => await base.Nullable_complex_type_with_discriminator_update_non_null_entity_roundtrip();
+
+    public override async Task Nullable_complex_type_with_discriminator_set_to_different_value()
+        => await base.Nullable_complex_type_with_discriminator_set_to_different_value();
+
+    [ConditionalFact(Skip = SkipReason.ComplexTypeDiscriminatorNullSemanticsNotSupported)]
+    public override async Task Nullable_complex_type_with_discriminator_set_to_null()
+        => await base.Nullable_complex_type_with_discriminator_set_to_null();
+
+    [ConditionalFact(Skip = SkipReason.ServerSideSingleScanNotSupported)]
+    public override async Task
+        Nested_nullable_complex_type_with_discriminator_null_to_non_null_roundtrip()
+        => await base.Nested_nullable_complex_type_with_discriminator_null_to_non_null_roundtrip();
+
+    [ConditionalFact(Skip = SkipReason.ServerSideSingleScanNotSupported)]
+    public override async Task
+        Update_entity_with_nullable_complex_type_and_discriminator_does_not_throw()
+        => await base.Update_entity_with_nullable_complex_type_and_discriminator_does_not_throw();
+
+    [ConditionalFact(Skip = SkipReason.KeyPropertiesInsideComplexTypesNotSupported)]
+    public override async Task Can_query_by_complex_type_property_with_index()
+        => await base.Can_query_by_complex_type_property_with_index();
+
+    [ConditionalFact(Skip = SkipReason.KeyPropertiesInsideComplexTypesNotSupported)]
+    public override async Task Can_update_entity_with_index_on_complex_type_property()
+        => await base.Can_update_entity_with_index_on_complex_type_property();
+
+    [ConditionalFact(Skip = SkipReason.KeyPropertiesInsideComplexTypesNotSupported)]
+    public override async Task Can_delete_entity_with_index_on_complex_type_property()
+        => await base.Can_delete_entity_with_index_on_complex_type_property();
+
+    [ConditionalFact(Skip = SkipReason.KeyPropertiesInsideComplexTypesNotSupported)]
+    public override async Task Can_query_by_alternate_key_on_complex_type_property()
+        => await base.Can_query_by_alternate_key_on_complex_type_property();
+
+    [ConditionalFact(Skip = SkipReason.KeyPropertiesInsideComplexTypesNotSupported)]
+    public override async Task
+        Can_save_batch_swapping_alternate_key_values_on_complex_type_property()
+        => await base.Can_save_batch_swapping_alternate_key_values_on_complex_type_property();
+#endif
+
     private void AssertSql(params string[] expected) => Fixture.AssertSql(expected);
 
     private static Task NoSyncTest(bool async, Func<bool, Task> testCode)
@@ -548,7 +628,7 @@ public abstract class ComplexTypeQueryDynamoTest
 
             modelBuilder.Entity<Customer>(entity =>
             {
-                entity.ToDynamoTable("Customers").HasPartitionKey(e => e.Id);
+                entity.ToDynamoTable("ComplexTypeCustomers").HasPartitionKey(e => e.Id);
                 entity.Property(e => e.Id).ValueGeneratedNever();
                 entity.ComplexProperty(
                     e => e.ShippingAddress,

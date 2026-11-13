@@ -146,3 +146,74 @@ public class ComplexTypesTableDbContext(DbContextOptions options) : DbContext(op
             builder.ComplexCollection(x => x.OrderSnapshots);
         });
 }
+
+public class ComplexTypeDiscriminatorDbContext(DbContextOptions options) : DbContext(options)
+{
+    public DbSet<DiscriminatorItem> Items => Set<DiscriminatorItem>();
+
+    public static ComplexTypeDiscriminatorDbContext Create(IAmazonDynamoDB client)
+        => new(
+            new DbContextOptionsBuilder<ComplexTypeDiscriminatorDbContext>()
+                .UseDynamo(options => options.DynamoDbClient(client))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                .Options);
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+        => modelBuilder.Entity<DiscriminatorItem>(builder =>
+        {
+            builder.ToDynamoTable(ComplexTypeDiscriminatorTable.TableName);
+            builder.HasPartitionKey(x => x.Pk);
+            builder.ComplexProperty(x => x.OptionalComplex, complex => complex.HasDiscriminator());
+        });
+}
+
+public class ClrDiscriminatorDbContext(DbContextOptions options) : DbContext(options)
+{
+    public DbSet<ClrDiscriminatorItem> Items => Set<ClrDiscriminatorItem>();
+
+    public static ClrDiscriminatorDbContext Create(IAmazonDynamoDB client)
+        => new(
+            new DbContextOptionsBuilder<ClrDiscriminatorDbContext>()
+                .UseDynamo(options => options.DynamoDbClient(client))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                .Options);
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+        => modelBuilder.Entity<ClrDiscriminatorItem>(builder =>
+        {
+            builder.ToDynamoTable(ClrDiscriminatorTable.TableName);
+            builder.HasPartitionKey(x => x.Pk);
+            builder.ComplexProperty(
+                x => x.OptionalComplex,
+                complex => complex.HasDiscriminator(v => v.Kind));
+        });
+}
+
+public class ProjectionComplexDbContext(DbContextOptions options) : DbContext(options)
+{
+    public DbSet<ProjectionComplexItem> Items => Set<ProjectionComplexItem>();
+
+    public static ProjectionComplexDbContext Create(IAmazonDynamoDB client)
+        => new(
+            new DbContextOptionsBuilder<ProjectionComplexDbContext>()
+                .UseDynamo(options => options.DynamoDbClient(client))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                .Options);
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+        => modelBuilder.Entity<ProjectionComplexItem>(builder =>
+        {
+            builder.ToDynamoTable(ProjectionComplexTable.TableName);
+            builder.HasPartitionKey(x => x.Pk);
+            builder.ComplexProperty(x => x.OptionalComplex);
+        });
+}

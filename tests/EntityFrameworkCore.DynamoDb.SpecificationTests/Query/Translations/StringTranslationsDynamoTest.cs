@@ -14,6 +14,7 @@ public abstract class StringTranslationsDynamoTest
     public virtual void Check_all_tests_overridden()
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(StringTranslationsDynamoTest));
 
+#if !NET11_0_OR_GREATER
     public override async Task Equals()
     {
         await base.Equals();
@@ -25,6 +26,19 @@ public abstract class StringTranslationsDynamoTest
             WHERE "string" = 'Seattle'
             """);
     }
+#else
+    public override async Task Instance_Equals()
+    {
+        await base.Instance_Equals();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            FROM "BasicTypesEntity"
+            WHERE "string" = 'Seattle'
+            """);
+    }
+#endif
 
     [ConditionalFact(Skip = SkipReason.CaseInsensitiveStringComparisonNotSupported)]
     public override Task Equals_with_OrdinalIgnoreCase() => base.Equals_with_OrdinalIgnoreCase();

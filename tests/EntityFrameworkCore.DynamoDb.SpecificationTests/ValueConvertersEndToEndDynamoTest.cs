@@ -21,8 +21,8 @@ public abstract class ValueConvertersEndToEndDynamoTest(
                 && method.IsPublic
                 && method.IsVirtual
                 && !method.IsFinal
-                && (Attribute.IsDefined(method, typeof(ConditionalFactAttribute))
-                    || Attribute.IsDefined(method, typeof(ConditionalTheoryAttribute))))
+                && (Attribute.IsDefined(method, typeof(FactAttribute))
+                    || Attribute.IsDefined(method, typeof(TheoryAttribute))))
             .Select(method => method.Name);
 
         Assert.Empty(inheritedPublicOverridableTests);

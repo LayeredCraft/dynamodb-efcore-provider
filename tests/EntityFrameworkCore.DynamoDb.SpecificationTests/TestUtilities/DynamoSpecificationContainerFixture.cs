@@ -47,7 +47,13 @@ public sealed class DynamoSpecificationContainerFixture : IAsyncLifetime
     }
 
     /// <summary>Starts the shared DynamoDB Local container.</summary>
-    public async Task InitializeAsync() => await GetClientAsync().ConfigureAwait(false);
+#if NET11_0_OR_GREATER
+    public async ValueTask InitializeAsync() =>
+#else
+    public async Task InitializeAsync()
+        =>
+#endif
+            await GetClientAsync().ConfigureAwait(false);
 
     /// <summary>Stops the shared DynamoDB Local container and disposes the client.</summary>
     public static async Task DisposeContainerAsync()
@@ -63,7 +69,13 @@ public sealed class DynamoSpecificationContainerFixture : IAsyncLifetime
     }
 
     /// <summary>Stops the shared DynamoDB Local container and disposes the client.</summary>
-    public async Task DisposeAsync() => await DisposeContainerAsync().ConfigureAwait(false);
+#if NET11_0_OR_GREATER
+    public async ValueTask DisposeAsync() =>
+#else
+    public async Task DisposeAsync()
+        =>
+#endif
+            await DisposeContainerAsync().ConfigureAwait(false);
 }
 
 /// <summary>Collection definition for DynamoDB specification tests.</summary>

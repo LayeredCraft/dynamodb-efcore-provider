@@ -251,7 +251,11 @@ public abstract class CustomConvertersDynamoTest(
         => base.Collection_enum_as_string_Contains();
 
     [ConditionalFact(Skip = SkipReason.OwnedEntityTypesNotSupported)]
+#if NET11_0_OR_GREATER
+    public override Task Optional_owned_with_converter_reading_non_nullable_column()
+#else
     public override void Optional_owned_with_converter_reading_non_nullable_column()
+#endif
         => base.Optional_owned_with_converter_reading_non_nullable_column();
 
     public override Task Id_object_as_entity_key() => base.Id_object_as_entity_key();
@@ -320,9 +324,7 @@ public abstract class CustomConvertersDynamoTest(
                                     ],
                                     Details = new AnimalDetails
                                     {
-                                        Id = 1,
-                                        AnimalId = 1,
-                                        BoolField = true
+                                        Id = 1, AnimalId = 1, BoolField = true
                                     }
                                 });
 

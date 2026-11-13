@@ -18,6 +18,10 @@ spec class; track the class only in this document with the unsupported rationale
 > Each test method typically runs as both an async and sync variant in the test runner,
 > so method counts below are unique test methods (not total test runs).
 
+EF10 (net10.0) runs these specifications on xUnit v2, while EF11 (net11.0) runs them on xUnit v3.
+Skipped theory methods are reported as a single skipped entry on EF11, so the EF11 run total is
+lower than the sum of individual data rows even though the same methods are covered.
+
 Reference implementations used as guides:
 
 - **Cosmos DB** — `EFCore.Cosmos.FunctionalTests` (closest architectural analogue)
@@ -158,13 +162,13 @@ Uses the `Customer / Employee / Order / Product` dataset with `NorthwindQueryDyn
 | Test Class                             | Methods | Cosmos | MongoDB | Notes                                                                                                                                                              |
 | -------------------------------------- | ------: | :----: | :-----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `NorthwindWhereQueryTestBase`          |     203 |   ✓    |    ✓    | Predicate filtering; skipped unsupported shapes delegate to upstream base methods so inherited intent stays visible                                                |
-| `NorthwindSelectQueryTestBase`         |     186 |   ✓    |    ✓    | Projections and SELECT shapes                                                                                                                                      |
+| `NorthwindSelectQueryTestBase`         |     188 |   ✓    |    ✓    | Projections and SELECT shapes                                                                                                                                      |
 | `NorthwindAsNoTrackingQueryTestBase`   |      11 |   ✗    |    ✓    | `AsNoTracking()` passthrough; join/navigation-shaped cases skipped                                                                                                 |
 | `NorthwindAsTrackingQueryTestBase`     |       5 |   ✗    |    ✓    | `AsTracking()` sync-only inherited rows are skipped because DynamoDB queries are async-only; join/navigation cases remain skipped                                  |
 | `NorthwindQueryTaggingQueryTestBase`   |       9 |   ✗    |    ✓    | `TagWith()` inherited rows are sync-only or navigation/join-shaped and are skipped; tags have no DynamoDB PartiQL effect                                           |
 | `NorthwindChangeTrackingQueryTestBase` |      17 |   ✗    |    ✓    | Sync-only change-tracking query rows and join-shaped modifier-precedence cases are skipped; materialization/tracking behavior is covered by supported query suites |
 | `NorthwindFunctionsQueryTestBase`      |      10 |   ✓    |    ✓    | Static equality function covered; navigation/unsupported function cases skipped                                                                                    |
-| `NorthwindQueryFiltersQueryTestBase`   |      17 |   ✗    |    ✓    | Global `HasQueryFilter` on Northwind entities; navigation/include, aggregate count, and unsupported `Find` filter shapes skipped                                   |
+| `NorthwindQueryFiltersQueryTestBase`   |      20 |   ✗    |    ✓    | Global `HasQueryFilter` on Northwind entities; navigation/include, aggregate count, and unsupported `Find` filter shapes skipped                                   |
 
 ### Implement Next
 
@@ -203,11 +207,11 @@ These tests use non-Northwind models and fixtures.
 
 | Test Class                             | Methods | Cosmos | MongoDB | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | -------------------------------------- | ------: | :----: | :-----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ComplexTypeQueryTestBase`             |      74 |   ✓    |    ✗    | All inherited methods are registered/overridden with explicit outcomes; supported projection/filter, nested struct projection, and complex equality subsets execute, while navigation, set-operation, GroupBy, subquery/Contains, and pushdown cases are explicitly skipped                                                                                                                                                                                                                                                                                                                                                |
+| `ComplexTypeQueryTestBase`             |      92 |   ✓    |    ✗    | All inherited methods are registered/overridden with explicit outcomes; supported projection/filter, nested struct projection, and complex equality subsets execute, while navigation, set-operation, GroupBy, subquery/Contains, and pushdown cases are explicitly skipped; EF Core 11 GA complex-type discriminator, index, and alternate-key methods are classified with explicit skip reasons                                                                                                                                                                                                                          |
 | `InheritanceQueryTestBase`             |      52 |   ✓    |    ✗    | Single-table inheritance with discriminator predicates is covered, including `OfType`, `is`, `GetType()` leaf checks, derived-property filters, and discriminator projections. Skips remain for keyless views, navigations/includes, transactions, set operations, non-key ordered result assumptions, scan-like `Single`, and a few unsupported projection/query shapes.                                                                                                                                                                                                                                                  |
 | `FiltersInheritanceQueryTestBase`      |      11 |   ✗    |    ✗    | Global query filters on inherited types execute for discriminator predicates, projections, and derived sets; ordered-result and sync-only `GetDatabaseValues` cases are skipped                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `InheritanceComplexTypesQueryTestBase` |       9 |   ✗    |    ✗    | EF11-only. Complex-type filters and projections over inheritance execute; complex collection aggregate subquery is skipped because DynamoDB PartiQL has no `COUNT` aggregate support                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `PrimitiveCollectionsQueryTestBase`    |     172 |   ✓    |    ✗    | Primitive collection coverage distinguishes list-like DynamoDB `L` attributes from set-like `SS`/`NS`/`BS` attributes where applicable. Current focused validation passes 49 supported methods on EF10 and 56 on EF11 across inline/parameter `Contains`, MemoryExtensions/ListInit `Contains`, scalar and value-converted collection parameters, column `Contains`/`Any`/`Count`/`Length`, direct list indexing/first-element access, and the EF11 multidimensional-array guard; `docs/spec-test-primitive-collections-audit.md` summarizes user-facing primitive collection query support, limitations, and future work. |
+| `PrimitiveCollectionsQueryTestBase`    |     174 |   ✓    |    ✗    | Primitive collection coverage distinguishes list-like DynamoDB `L` attributes from set-like `SS`/`NS`/`BS` attributes where applicable. Current focused validation passes 49 supported methods on EF10 and 56 on EF11 across inline/parameter `Contains`, MemoryExtensions/ListInit `Contains`, scalar and value-converted collection parameters, column `Contains`/`Any`/`Count`/`Length`, direct list indexing/first-element access, and the EF11 multidimensional-array guard; `docs/spec-test-primitive-collections-audit.md` summarizes user-facing primitive collection query support, limitations, and future work. |
 | `FunkyDataQueryTestBase`               |      19 |   ✗    |    ✗    | Edge-case string data with wildcard-like characters; `Contains` and provider-specific non-null `StartsWith` cases execute, while inherited null-argument `StartsWith` branches, column cross-products, `EndsWith`, and unsupported character operators are explicitly skipped                                                                                                                                                                                                                                                                                                                                              |
 
 ### Implement Next
@@ -220,31 +224,31 @@ No other query specification test classes are currently queued here.
 
 ### Skip — Architectural Constraints
 
-| Test Class                                   | Methods | Cosmos | MongoDB | Reason                                                                                                                                                                                     |
-| -------------------------------------------- | ------: | :----: | :-----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ComplexNavigationsQueryTestBase`            |     308 |   ✗    |    ✗    | Navigation-heavy hierarchical queries                                                                                                                                                      |
-| `ComplexNavigationsCollectionsQueryTestBase` |     156 |   ✗    |    ✗    | Navigation collection queries                                                                                                                                                              |
-| `GearsOfWarQueryTestBase`                    |     594 |   ✗    |    ✗    | Large navigation/join-heavy test suite                                                                                                                                                     |
-| `InheritanceRelationshipsQueryTestBase`      |      48 |   ✗    |    ✗    | Inheritance + navigation relationships                                                                                                                                                     |
-| `IncludeOneToOneTestBase`                    |      12 |   ✗    |    ✗    | One-to-one Include; navigation-dependent                                                                                                                                                   |
-| `ManyToManyQueryTestBase`                    |     104 |   ✗    |    ✓    | Many-to-many join table queries                                                                                                                                                            |
-| `ManyToManyNoTrackingQueryTestBase`          |       1 |   ✗    |    ✗    | M:M + no-tracking; navigation-dependent                                                                                                                                                    |
-| `OwnedQueryTestBase`                         |      95 |   ✓    |    ✗    | Owned entity queries; owned entities not supported in DynamoDB provider                                                                                                                    |
-| `OwnedEntityQueryTestBase`                   |      11 |   ✓    |    ✗    | Owned entity edge cases; same constraint                                                                                                                                                   |
-| `JsonQueryTestBase`                          |     203 |   ✓    |    ✗    | JSON column (`ToJson()`) queries; DynamoDB has no JSON column mapping                                                                                                                      |
-| `AdHocJsonQueryTestBase`                     |      40 |   ✓    |    ✓    | Ad-hoc JSON column scenarios; same constraint                                                                                                                                              |
-| `AdHocNavigationsQueryTestBase`              |      20 |   ✗    |    ✗    | Ad-hoc navigation scenarios                                                                                                                                                                |
-| `AdHocManyToManyQueryTestBase`               |       2 |   ✗    |    ✗    | Ad-hoc M:M queries                                                                                                                                                                         |
-| `NullKeysTestBase`                           |       5 |   ✗    |    ✗    | Nullable partition keys; DynamoDB does not support null keys                                                                                                                               |
-| `SpatialQueryTestBase`                       |      84 |   ✗    |    ✗    | Geometry/geography spatial queries                                                                                                                                                         |
-| `FilteredQueryTestBase`                      |       — |   ✗    |    ✗    | Filtered include queries; navigation-dependent                                                                                                                                             |
-| `CompositeKeysQueryTestBase`                 |       7 |   ✗    |    ✗    | Inherited composite-key query specs are navigation-expansion tests over multi-level related collections; DynamoDB supports PK + SK keys but not EF relationship/navigation queries         |
-| `SharedTypeQueryTestBase`                    |       1 |   ✗    |    ✗    | Single inherited test queries a keyless entity and filters through subquery Contains; DynamoDB requires a partition key for every root entity and does not support this subquery shape     |
-| `AdHocComplexTypeQueryTestBase`              |      18 |   ✓    |    ✗    | Below threshold: ad-hoc scenarios are dominated by owned types, optional complex discriminators, indexes/alternate keys, and update/delete semantics outside DynamoDB query spec coverage  |
-| `QueryFilterFuncletizationTestBase`          |      28 |   ✗    |    ✗    | Inherited coverage is sync-query-only (`ToList`/`Single`), while DynamoDB provider supports async query execution only; no meaningful executable async surface                             |
-| `AdHocMiscellaneousQueryTestBase`            |      40 |   ✓    |    ✗    | Broad ad-hoc scenarios are dominated by joins, includes, navigations, `GROUP BY`, set operations, compiled sync queries, query cache internals, and other unsupported/non-DynamoDB shapes  |
-| `AdHocQueryFiltersQueryTestBase`             |      23 |   ✗    |    ✗    | Inherited ad-hoc query-filter coverage is sync-query-heavy and includes weak entities, relationship/FK optimizations, joins, `GROUP BY`, and aggregate shapes unsupported by DynamoDB      |
-| `AdHocAdvancedMappingsQueryTestBase`         |      14 |   ✗    |    ✗    | Advanced mapping scenarios are sync-query-heavy and dominated by navigations, joins, owned types, interface/EF.Property over owned members, relational type facets, and hierarchy mappings |
+| Test Class                                   | Methods | Cosmos | MongoDB | Reason                                                                                                                                                                                                                                                                                              |
+| -------------------------------------------- | ------: | :----: | :-----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ComplexNavigationsQueryTestBase`            |     308 |   ✗    |    ✗    | Navigation-heavy hierarchical queries                                                                                                                                                                                                                                                               |
+| `ComplexNavigationsCollectionsQueryTestBase` |     156 |   ✗    |    ✗    | Navigation collection queries                                                                                                                                                                                                                                                                       |
+| `GearsOfWarQueryTestBase`                    |     594 |   ✗    |    ✗    | Large navigation/join-heavy test suite                                                                                                                                                                                                                                                              |
+| `InheritanceRelationshipsQueryTestBase`      |      48 |   ✗    |    ✗    | Inheritance + navigation relationships                                                                                                                                                                                                                                                              |
+| `IncludeOneToOneTestBase`                    |      12 |   ✗    |    ✗    | One-to-one Include; navigation-dependent                                                                                                                                                                                                                                                            |
+| `ManyToManyQueryTestBase`                    |     104 |   ✗    |    ✓    | Many-to-many join table queries                                                                                                                                                                                                                                                                     |
+| `ManyToManyNoTrackingQueryTestBase`          |       1 |   ✗    |    ✗    | M:M + no-tracking; navigation-dependent                                                                                                                                                                                                                                                             |
+| `OwnedQueryTestBase`                         |      95 |   ✓    |    ✗    | Owned entity queries; owned entities not supported in DynamoDB provider                                                                                                                                                                                                                             |
+| `OwnedEntityQueryTestBase`                   |      11 |   ✓    |    ✗    | Owned entity edge cases; same constraint                                                                                                                                                                                                                                                            |
+| `JsonQueryTestBase`                          |     203 |   ✓    |    ✗    | JSON column (`ToJson()`) queries; DynamoDB has no JSON column mapping                                                                                                                                                                                                                               |
+| `AdHocJsonQueryTestBase`                     |      40 |   ✓    |    ✓    | Ad-hoc JSON column scenarios; same constraint                                                                                                                                                                                                                                                       |
+| `AdHocNavigationsQueryTestBase`              |      20 |   ✗    |    ✗    | Ad-hoc navigation scenarios                                                                                                                                                                                                                                                                         |
+| `AdHocManyToManyQueryTestBase`               |       2 |   ✗    |    ✗    | Ad-hoc M:M queries                                                                                                                                                                                                                                                                                  |
+| `NullKeysTestBase`                           |       5 |   ✗    |    ✗    | Nullable partition keys; DynamoDB does not support null keys                                                                                                                                                                                                                                        |
+| `SpatialQueryTestBase`                       |      84 |   ✗    |    ✗    | Geometry/geography spatial queries                                                                                                                                                                                                                                                                  |
+| `FilteredQueryTestBase`                      |       — |   ✗    |    ✗    | Filtered include queries; navigation-dependent                                                                                                                                                                                                                                                      |
+| `CompositeKeysQueryTestBase`                 |       7 |   ✗    |    ✗    | Inherited composite-key query specs are navigation-expansion tests over multi-level related collections; DynamoDB supports PK + SK keys but not EF relationship/navigation queries                                                                                                                  |
+| `SharedTypeQueryTestBase`                    |       1 |   ✗    |    ✗    | Single inherited test queries a keyless entity and filters through subquery Contains; DynamoDB requires a partition key for every root entity and does not support this subquery shape                                                                                                              |
+| `AdHocComplexTypeQueryTestBase`              |      18 |   ✓    |    ✗    | Below threshold: ad-hoc scenarios are dominated by owned types, optional complex discriminators, indexes/alternate keys, and update/delete semantics outside DynamoDB query spec coverage; the EF Core 11 GA additions to the shared complex-type surface are covered in `ComplexTypeQueryTestBase` |
+| `QueryFilterFuncletizationTestBase`          |      28 |   ✗    |    ✗    | Inherited coverage is sync-query-only (`ToList`/`Single`), while DynamoDB provider supports async query execution only; no meaningful executable async surface                                                                                                                                      |
+| `AdHocMiscellaneousQueryTestBase`            |      40 |   ✓    |    ✗    | Broad ad-hoc scenarios are dominated by joins, includes, navigations, `GROUP BY`, set operations, compiled sync queries, query cache internals, and other unsupported/non-DynamoDB shapes                                                                                                           |
+| `AdHocQueryFiltersQueryTestBase`             |      23 |   ✗    |    ✗    | Inherited ad-hoc query-filter coverage is sync-query-heavy and includes weak entities, relationship/FK optimizations, joins, `GROUP BY`, and aggregate shapes unsupported by DynamoDB                                                                                                               |
+| `AdHocAdvancedMappingsQueryTestBase`         |      14 |   ✗    |    ✗    | Advanced mapping scenarios are sync-query-heavy and dominated by navigations, joins, owned types, interface/EF.Property over owned members, relational type facets, and hierarchy mappings                                                                                                          |
 
 ______________________________________________________________________
 
@@ -259,7 +263,7 @@ sub-families are skipped; complex-property sub-families are partially implemente
 | --------------------------------------------- | ------: | :----: | :-----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ComplexPropertiesMiscellaneousTestBase`      |       6 |   ✗    |    ✗    | Complex property scalar filters execute, including nullable value-type complex property `.Value` and `.HasValue` shapes                                                                                                                                                                                                     |
 | `ComplexPropertiesStructuralEqualityTestBase` |      16 |   ✗    |    ✗    | Complex property structural equality; scalar and nested complex comparisons execute, while collection equality (issue #257), collection Contains, and complex-null parameter comparison are explicitly skipped                                                                                                              |
-| `ComplexPropertiesProjectionTestBase`         |      20 |   ✗    |    ✗    | Complex property projections execute where upstream query shape is directly supportable. Ordered association collection/value-type variants are skipped instead of rewritten; explicit skips cover navigation traversal, SelectMany/list flattening, subquery pushdown, and duplicate-root projection materialization gaps. |
+| `ComplexPropertiesProjectionTestBase`         |      23 |   ✗    |    ✗    | Complex property projections execute where upstream query shape is directly supportable. Ordered association collection/value-type variants are skipped instead of rewritten; explicit skips cover navigation traversal, SelectMany/list flattening, subquery pushdown, and duplicate-root projection materialization gaps. |
 
 ### Future
 
@@ -295,15 +299,15 @@ Cosmos DB implements all translation categories; MongoDB implements none.
 
 #### Implemented
 
-| Test Class                               | Methods | Cosmos | Notes                                                                                                                                                                                                                                      |
-| ---------------------------------------- | ------: | :----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ComparisonOperatorTranslationsTestBase` |       6 |   ✓    | Equal, not-equal, less/greater-than; core PartiQL comparisons                                                                                                                                                                              |
-| `LogicalOperatorTranslationsTestBase`    |       6 |   ✓    | `AND`, `OR`, `NOT`, and bool-property predicates                                                                                                                                                                                           |
-| `GuidTranslationsTestBase`               |       4 |   ✓    | GUID equality, parameterization, and projection; `Guid.NewGuid()` predicate skipped                                                                                                                                                        |
-| `EnumTranslationsTestBase`               |      18 |   ✓    | Enum equality for constant, parameter, and nullable shapes; bitwise/`HasFlag` shapes explicitly skipped                                                                                                                                    |
-| `StringTranslationsTestBase`             |     100 |   ✓    | Explicit outcomes for all inherited string translation specs; equality, `Length`/`SIZE`, `IsNullOrEmpty`, `StartsWith(string)`, `Contains(string)`, and sign-based string comparisons execute; unsupported functions/overloads are skipped |
-| `ByteArrayTranslationsTestBase`          |       8 |   ✓    | Binary length, non-empty, and equality execute via DynamoDB `size`/binary `=`; 5 byte-level membership/indexing methods are explicitly skipped because `byte[]` maps to one Binary attribute, not a byte collection                        |
-| `DateTimeTranslationsTestBase`           |      19 |   ✓    | Constant/parameter `DateTime` equality executes for `Parse` and `new DateTime(...)`; date/time member and current-time functions are skipped because DynamoDB PartiQL has no temporal functions                                            |
+| Test Class                               | Methods | Cosmos | Notes                                                                                                                                                                                                                                                                                                                               |
+| ---------------------------------------- | ------: | :----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ComparisonOperatorTranslationsTestBase` |       6 |   ✓    | Equal, not-equal, less/greater-than; core PartiQL comparisons                                                                                                                                                                                                                                                                       |
+| `LogicalOperatorTranslationsTestBase`    |       6 |   ✓    | `AND`, `OR`, `NOT`, and bool-property predicates                                                                                                                                                                                                                                                                                    |
+| `GuidTranslationsTestBase`               |       4 |   ✓    | GUID equality, parameterization, and projection; `Guid.NewGuid()` predicate skipped                                                                                                                                                                                                                                                 |
+| `EnumTranslationsTestBase`               |      18 |   ✓    | Enum equality for constant, parameter, and nullable shapes; bitwise/`HasFlag` shapes explicitly skipped                                                                                                                                                                                                                             |
+| `StringTranslationsTestBase`             |     100 |   ✓    | Explicit outcomes for all inherited string translation specs; equality, `Length`/`SIZE`, `IsNullOrEmpty`, `StartsWith(string)`, `Contains(string)`, and sign-based string comparisons execute; the equality case is covered as `Instance_Equals` (renamed from `Equals` in EF Core 11); unsupported functions/overloads are skipped |
+| `ByteArrayTranslationsTestBase`          |       8 |   ✓    | Binary length, non-empty, and equality execute via DynamoDB `size`/binary `=`; 5 byte-level membership/indexing methods are explicitly skipped because `byte[]` maps to one Binary attribute, not a byte collection                                                                                                                 |
+| `DateTimeTranslationsTestBase`           |      19 |   ✓    | Constant/parameter `DateTime` equality executes for `Parse` and `new DateTime(...)`; date/time member and current-time functions are skipped because DynamoDB PartiQL has no temporal functions                                                                                                                                     |
 
 #### Future
 
@@ -341,9 +345,9 @@ ______________________________________________________________________
 | --------------------- | -----------------------: | -------------: | -----------------------: | --------------------------: |
 | Non-Query (top-level) | 20 classes / 377 methods |              — |                        — |  25 classes / 1,403 methods |
 | BulkUpdates           |                        — |              — | 5 classes / 136+ methods |        1 class / 33 methods |
-| Northwind Query       |  8 classes / 458 methods |              — |                        — | 14 classes / 1,398+ methods |
-| Other Query           |  6 classes / 337 methods |              — |                        — |  23 classes / 1,814 methods |
-| Associations          |   3 classes / 42 methods |              — |                        — |  13+ classes / 123+ methods |
+| Northwind Query       |  8 classes / 463 methods |              — |                        — | 14 classes / 1,398+ methods |
+| Other Query           |  6 classes / 357 methods |              — |                        — |  23 classes / 1,814 methods |
+| Associations          |   3 classes / 45 methods |              — |                        — |  13+ classes / 123+ methods |
 | Translations          |  7 classes / 161 methods |              — |                        — |     9 classes / 171 methods |
 
 ______________________________________________________________________
@@ -397,37 +401,37 @@ This list records recently completed additions; authoritative implemented/not-im
 ### Immediate (complete)
 
 1. `ComplianceDynamoTest` — 1 method
-2. `OverzealousInitializationDynamoTest` — 1 method
-3. `SaveChangesInterceptionDynamoTest` — 13 methods
-4. `QueryExpressionInterceptionDynamoTest` — 4 methods
-5. `NorthwindAsNoTrackingQueryDynamoTest` — 11 methods
-6. `NorthwindAsTrackingQueryDynamoTest` — 5 methods
-7. `NorthwindQueryTaggingQueryDynamoTest` — 9 methods
-8. `NorthwindChangeTrackingQueryDynamoTest` — 17 methods
-9. `CompositeKeyEndToEndDynamoTest` — 3 methods
-10. `NorthwindFunctionsQueryDynamoTest` — 10 methods
-11. `ConvertToProviderTypesDynamoTest` — 2 methods
-12. `CustomConvertersDynamoTest` — 29 methods
-13. `ComplexTypeQueryDynamoTest` — 74 methods
-14. `SeedingDynamoTest` — 2 methods
-15. `KeysWithConvertersDynamoTest` — 47 methods
-16. `ComparisonOperatorTranslationsDynamoTest` — 6 methods
-17. `LogicalOperatorTranslationsDynamoTest` — 6 methods
-18. `ComplexPropertiesMiscellaneousDynamoTest` — 6 methods
-19. `GuidTranslationsDynamoTest` — 4 methods
-20. `EnumTranslationsDynamoTest` — 18 methods
-21. `StringTranslationsDynamoTest` — 100 methods
-22. `ComplexPropertiesStructuralEqualityDynamoTest` — 16 methods
-23. `ComplexPropertiesProjectionDynamoTest` — 20 methods
-24. `InheritanceQueryDynamoTest` — 52 methods
-25. `PrimitiveCollectionsQueryDynamoTest` — 172 methods
-26. `FunkyDataQueryDynamoTest` — 19 methods
-27. `ByteArrayTranslationsDynamoTest` — 8 methods
-28. `DateTimeTranslationsDynamoTest` — 19 methods
-29. `FiltersInheritanceQueryDynamoTest` — 11 methods
-30. `InheritanceComplexTypesQueryDynamoTest` — 9 methods (EF11 only)
-31. `EntityFrameworkServiceCollectionExtensionsDynamoTest` — 3 methods (EF11 only)
-32. `Types/Dynamo*TypeTest` — 4 methods per EF11 scalar class, explicit skipped EF10 equality decisions
+1. `OverzealousInitializationDynamoTest` — 1 method
+1. `SaveChangesInterceptionDynamoTest` — 13 methods
+1. `QueryExpressionInterceptionDynamoTest` — 4 methods
+1. `NorthwindAsNoTrackingQueryDynamoTest` — 11 methods
+1. `NorthwindAsTrackingQueryDynamoTest` — 5 methods
+1. `NorthwindQueryTaggingQueryDynamoTest` — 9 methods
+1. `NorthwindChangeTrackingQueryDynamoTest` — 17 methods
+1. `CompositeKeyEndToEndDynamoTest` — 3 methods
+1. `NorthwindFunctionsQueryDynamoTest` — 10 methods
+1. `ConvertToProviderTypesDynamoTest` — 2 methods
+1. `CustomConvertersDynamoTest` — 29 methods
+1. `ComplexTypeQueryDynamoTest` — 92 methods
+1. `SeedingDynamoTest` — 2 methods
+1. `KeysWithConvertersDynamoTest` — 47 methods
+1. `ComparisonOperatorTranslationsDynamoTest` — 6 methods
+1. `LogicalOperatorTranslationsDynamoTest` — 6 methods
+1. `ComplexPropertiesMiscellaneousDynamoTest` — 6 methods
+1. `GuidTranslationsDynamoTest` — 4 methods
+1. `EnumTranslationsDynamoTest` — 18 methods
+1. `StringTranslationsDynamoTest` — 100 methods
+1. `ComplexPropertiesStructuralEqualityDynamoTest` — 16 methods
+1. `ComplexPropertiesProjectionDynamoTest` — 23 methods
+1. `InheritanceQueryDynamoTest` — 52 methods
+1. `PrimitiveCollectionsQueryDynamoTest` — 174 methods
+1. `FunkyDataQueryDynamoTest` — 19 methods
+1. `ByteArrayTranslationsDynamoTest` — 8 methods
+1. `DateTimeTranslationsDynamoTest` — 19 methods
+1. `FiltersInheritanceQueryDynamoTest` — 11 methods
+1. `InheritanceComplexTypesQueryDynamoTest` — 9 methods (EF11 only)
+1. `EntityFrameworkServiceCollectionExtensionsDynamoTest` — 3 methods (EF11 only)
+1. `Types/Dynamo*TypeTest` — 4 methods per EF11 scalar class, explicit skipped EF10 equality decisions
 
 ### Near-term (small, high confidence)
 
@@ -440,13 +444,13 @@ No medium-term specification test classes are currently queued here.
 ### Long-term (after core coverage is stable)
 
 1. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
-2. Remaining unsupported math/temporal translation families — after provider feature work
+1. Remaining unsupported math/temporal translation families — after provider feature work
 
 ### Current totals
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      44 |   1,375 |
+| Implemented    |      44 |   1,403 |
 | Implement Next |       0 |       0 |
 | Future         |       5 |    136+ |
 | Skip           |     85+ |  4,942+ |
