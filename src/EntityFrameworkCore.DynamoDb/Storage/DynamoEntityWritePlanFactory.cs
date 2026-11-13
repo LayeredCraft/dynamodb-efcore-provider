@@ -161,10 +161,17 @@ internal sealed class EntityWritePlan(
         /// <summary>Creates a write plan for the given complex type.</summary>
         public static ComplexTypeWritePlan Create(IComplexType complexType)
         {
+            var discriminatorProperty = complexType.FindDiscriminatorProperty();
             var scalarWriters = new List<ComplexScalarWriteAction>();
             foreach (var property in complexType.GetProperties())
             {
-                if (property.IsRuntimeOnly() || property.IsShadowProperty())
+                if (property.IsRuntimeOnly())
+                    continue;
+
+                // The complex-type discriminator is a shadow property used only for EF Core's
+                // discrimination/null semantics. It has no CLR member, and the provider does not
+                // persist it. Other shadow properties are not silently discarded.
+                if (ReferenceEquals(property, discriminatorProperty))
                     continue;
 
                 scalarWriters.Add(
