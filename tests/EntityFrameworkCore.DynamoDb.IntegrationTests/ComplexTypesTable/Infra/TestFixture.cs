@@ -127,6 +127,28 @@ public abstract class ComplexTypeDiscriminatorTableTestFixture : DynamoTestFixtu
                 => options.DynamoDbClient(Client)));
 }
 
+public abstract class ClrDiscriminatorTableTestFixture : DynamoTestFixtureBase
+{
+    protected ClrDiscriminatorTableTestFixture(DynamoContainerFixture fixture) : base(fixture)
+        => EnsureClassTableInitialized(
+            ClrDiscriminatorTable.TableName,
+            ClrDiscriminatorTable.CreateTable);
+
+    protected TestPartiQlLoggerFactory LoggerFactory => SqlCapture;
+
+    public ClrDiscriminatorDbContext Db
+    {
+        get
+        {
+            field ??= CreateContext();
+            return field;
+        }
+    }
+
+    protected ClrDiscriminatorDbContext CreateContext()
+        => new(CreateOptions<ClrDiscriminatorDbContext>(options => options.DynamoDbClient(Client)));
+}
+
 public abstract class ProjectionComplexTableTestFixture : DynamoTestFixtureBase
 {
     protected ProjectionComplexTableTestFixture(DynamoContainerFixture fixture) : base(fixture)

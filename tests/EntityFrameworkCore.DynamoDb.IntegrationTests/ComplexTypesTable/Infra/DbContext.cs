@@ -170,6 +170,31 @@ public class ComplexTypeDiscriminatorDbContext(DbContextOptions options) : DbCon
         });
 }
 
+public class ClrDiscriminatorDbContext(DbContextOptions options) : DbContext(options)
+{
+    public DbSet<ClrDiscriminatorItem> Items => Set<ClrDiscriminatorItem>();
+
+    public static ClrDiscriminatorDbContext Create(IAmazonDynamoDB client)
+        => new(
+            new DbContextOptionsBuilder<ClrDiscriminatorDbContext>()
+                .UseDynamo(options => options.DynamoDbClient(client))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                .Options);
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+        => modelBuilder.Entity<ClrDiscriminatorItem>(builder =>
+        {
+            builder.ToDynamoTable(ClrDiscriminatorTable.TableName);
+            builder.HasPartitionKey(x => x.Pk);
+            builder.ComplexProperty(
+                x => x.OptionalComplex,
+                complex => complex.HasDiscriminator(v => v.Kind));
+        });
+}
+
 public class ProjectionComplexDbContext(DbContextOptions options) : DbContext(options)
 {
     public DbSet<ProjectionComplexItem> Items => Set<ProjectionComplexItem>();

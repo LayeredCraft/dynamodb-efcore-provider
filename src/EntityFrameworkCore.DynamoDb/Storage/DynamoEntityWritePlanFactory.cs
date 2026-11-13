@@ -168,11 +168,12 @@ internal sealed class EntityWritePlan(
                 if (property.IsRuntimeOnly())
                     continue;
 
-                // The complex-type discriminator is a shadow property used only for EF Core's
-                // discrimination/null semantics. It has no CLR member, and the provider does not
-                // persist it. Other shadow properties are not silently discarded.
-                if (ReferenceEquals(property, discriminatorProperty))
+                // Shadow discriminators have no CLR member, so the provider does not persist them.
+                // A discriminator mapped to a CLR property is a normal persisted complex member.
+                if (ReferenceEquals(property, discriminatorProperty) && property.IsShadowProperty())
+                {
                     continue;
+                }
 
                 scalarWriters.Add(
                     new ComplexScalarWriteAction(

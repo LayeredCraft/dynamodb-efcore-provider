@@ -149,6 +149,22 @@ public record DiscriminatedValue
     public string? OptionalProperty { get; set; }
 }
 
+/// <summary>Root entity for the CLR-mapped complex-type discriminator persistence scenario.</summary>
+public sealed record ClrDiscriminatorItem
+{
+    public string Pk { get; set; } = null!;
+
+    public ClrDiscriminatedValue? OptionalComplex { get; set; }
+}
+
+/// <summary>Optional complex type whose discriminator maps to a CLR property.</summary>
+public record ClrDiscriminatedValue
+{
+    public string Kind { get; set; } = null!;
+
+    public string? OptionalProperty { get; set; }
+}
+
 /// <summary>Root entity for projecting a primitive collection inside an optional complex type.</summary>
 public sealed record ProjectionComplexItem
 {
