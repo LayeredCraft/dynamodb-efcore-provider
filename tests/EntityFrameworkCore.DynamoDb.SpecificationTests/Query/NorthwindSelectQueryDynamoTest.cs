@@ -982,6 +982,22 @@ public abstract class NorthwindSelectQueryDynamoTest
         bool async)
         => base.SelectMany_without_result_selector_collection_navigation_composed(async);
 
+#if !NET10_0
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task SelectMany_over_inline_array_projecting_range_variable_and_outer(
+        bool async)
+        => base.SelectMany_over_inline_array_projecting_range_variable_and_outer(async);
+
+    [ConditionalTheory(Skip = SkipReason.SubqueryPushdownNotSupported)]
+    [MemberData(nameof(SingleResultMethodData))]
+    public override Task Multiple_members_of_correlated_single_result_subquery_lift_to_single_join(
+        bool async,
+        string method)
+        => base.Multiple_members_of_correlated_single_result_subquery_lift_to_single_join(
+            async,
+            method);
+#endif
+
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task SelectMany_correlated_with_outer_1(bool async)
         => base.SelectMany_correlated_with_outer_1(async);

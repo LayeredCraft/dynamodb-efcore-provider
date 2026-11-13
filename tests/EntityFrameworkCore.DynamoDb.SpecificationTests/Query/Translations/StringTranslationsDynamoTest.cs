@@ -26,6 +26,18 @@ public abstract class StringTranslationsDynamoTest
             WHERE "string" = 'Seattle'
             """);
     }
+#else
+    public override async Task Instance_Equals()
+    {
+        await base.Instance_Equals();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            FROM "BasicTypesEntity"
+            WHERE "string" = 'Seattle'
+            """);
+    }
 #endif
 
     [ConditionalFact(Skip = SkipReason.CaseInsensitiveStringComparisonNotSupported)]
