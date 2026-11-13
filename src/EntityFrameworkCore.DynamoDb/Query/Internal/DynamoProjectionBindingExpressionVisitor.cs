@@ -89,20 +89,20 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
             case null when !_indexBasedBinding:
                 return QueryCompilationContext.NotTranslatedExpression;
             case null:
+            {
+                var constructorArguments = new Expression[node.Arguments.Count];
+                for (var i = 0; i < constructorArguments.Length; i++)
                 {
-                    var constructorArguments = new Expression[node.Arguments.Count];
-                    for (var i = 0; i < constructorArguments.Length; i++)
-                    {
-                        var visitedArgument = Visit(node.Arguments[i]);
-                        if (visitedArgument == QueryCompilationContext.NotTranslatedExpression)
-                            return visitedArgument;
-                        if (visitedArgument == null)
-                            return QueryCompilationContext.NotTranslatedExpression;
-                        constructorArguments[i] = visitedArgument;
-                    }
-
-                    return node.Update(constructorArguments);
+                    var visitedArgument = Visit(node.Arguments[i]);
+                    if (visitedArgument == QueryCompilationContext.NotTranslatedExpression)
+                        return visitedArgument;
+                    if (visitedArgument == null)
+                        return QueryCompilationContext.NotTranslatedExpression;
+                    constructorArguments[i] = visitedArgument;
                 }
+
+                return node.Update(constructorArguments);
+            }
         }
 
         var newArguments = new Expression[node.Arguments.Count];
@@ -453,6 +453,29 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
             var ownerStructuralType =
                 (node.Arguments[0] as StructuralTypeShaperExpression)?.StructuralType
                 ?? (ITypeBase?)model.FindEntityType(node.Arguments[0].Type);
+
+            // EF Core rewrites primitive-collection members of complex types to
+            // EF.Property<T>(complexExpression, "Member"). Route the member through the visited
+            // complex projection so it reads from the complex map context instead of the root item.
+            if (ownerStructuralType == null)
+            {
+                var complexOwner = Visit(node.Arguments[0]);
+                if (complexOwner == QueryCompilationContext.NotTranslatedExpression)
+                    return QueryCompilationContext.NotTranslatedExpression;
+
+                if (complexOwner is DynamoComplexTypeProjectionExpression complexProjection
+                    && complexProjection.ComplexProperty.ComplexType.FindProperty(propertyName) is
+                        { } nestedProperty)
+                {
+                    var memberAccess = Expression.MakeMemberAccess(
+                        complexProjection,
+                        DynamoEntityProjectionExpression.GetMemberInfo(nestedProperty));
+
+                    return memberAccess.Type == node.Type
+                        ? memberAccess
+                        : Expression.Convert(memberAccess, node.Type);
+                }
+            }
 
             // Complex property via EF.Property<T>(e, "Profile"): same context-push logic as
             // VisitMember.
