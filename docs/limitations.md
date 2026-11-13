@@ -24,9 +24,10 @@ and runs a NativeAOT test application for both on `linux-x64` before every relea
 identifiers are not validated by the provider.
 
 On macOS arm64, publishing an EF Core 11 NativeAOT application has been observed to fail inside
-EF Core 11.0.0's query-precompilation build step, before provider code runs. Linux publishing is
-not affected. Until this is resolved, publish EF Core 11 NativeAOT applications on Linux — for
-example in a Linux container or CI runner. EF Core 10 publishing on macOS arm64 is not affected.
+EF Core 11.0.0's query-precompilation build step, before provider code runs. CI-validated
+`linux-x64` publishing is not affected. Until this is resolved, publish EF Core 11 NativeAOT
+applications on `linux-x64` — for example in a Linux container or CI runner. EF Core 10 publishing
+on macOS arm64 is not affected.
 
 The tested native path supports scalar entity properties, including nullable numbers, Boolean,
 binary, configured scalar conversions, and one-dimensional arrays with non-nullable elements.

@@ -10,9 +10,9 @@ query shapes; a warning-free trimmed app is not yet guaranteed.
 Provider validation runs NativeAOT publish-and-run on `linux-x64` for EF Core 10 and 11; other
 runtime identifiers are not validated. On macOS arm64, publishing an EF Core 11 NativeAOT
 application has been observed to fail inside EF Core 11.0.0's query-precompilation build step,
-before provider code runs; Linux publishing is not affected, and EF Core 10 publishing on macOS
-arm64 is not affected. Until this is resolved, publish EF Core 11 NativeAOT applications on Linux —
-for example in a Linux container or CI runner.
+before provider code runs; CI-validated `linux-x64` publishing is not affected, and EF Core 10
+publishing on macOS arm64 is not affected. Until this is resolved, publish EF Core 11 NativeAOT
+applications on `linux-x64` — for example in a Linux container or CI runner.
 
 ## Project setup
 
