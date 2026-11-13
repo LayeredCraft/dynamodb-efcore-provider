@@ -60,7 +60,7 @@ public abstract class ComplexTypeQueryDynamoTest
                 AssertSql(
                     """
                     SELECT "shippingAddress"
-                    FROM "Customers"
+                    FROM "ComplexTypeCustomers"
                     """);
             });
 
@@ -73,7 +73,7 @@ public abstract class ComplexTypeQueryDynamoTest
                 AssertSql(
                     """
                     SELECT "shippingAddress"
-                    FROM "Customers"
+                    FROM "ComplexTypeCustomers"
                     """);
             });
 
@@ -86,7 +86,7 @@ public abstract class ComplexTypeQueryDynamoTest
                 AssertSql(
                     """
                     SELECT "shippingAddress"
-                    FROM "Customers"
+                    FROM "ComplexTypeCustomers"
                     """);
             });
 
@@ -99,7 +99,7 @@ public abstract class ComplexTypeQueryDynamoTest
                 AssertSql(
                     """
                     SELECT "shippingAddress"
-                    FROM "Customers"
+                    FROM "ComplexTypeCustomers"
                     WHERE "shippingAddress"."zipCode" = 7728
                     """);
             });
@@ -117,7 +117,7 @@ public abstract class ComplexTypeQueryDynamoTest
                 AssertSql(
                     """
                     SELECT "id", "$type", "name", "billingAddress", "optionalAddress", "shippingAddress"
-                    FROM "Customers"
+                    FROM "ComplexTypeCustomers"
                     WHERE "shippingAddress" = "billingAddress"
                     """);
             });
@@ -131,7 +131,7 @@ public abstract class ComplexTypeQueryDynamoTest
                 AssertSql(
                     """
                     SELECT "id", "$type", "name", "billingAddress", "optionalAddress", "shippingAddress"
-                    FROM "Customers"
+                    FROM "ComplexTypeCustomers"
                     WHERE "shippingAddress" = ?
                     """);
             });
@@ -145,7 +145,7 @@ public abstract class ComplexTypeQueryDynamoTest
                 AssertSql(
                     """
                     SELECT "id", "$type", "name", "billingAddress", "optionalAddress", "shippingAddress"
-                    FROM "Customers"
+                    FROM "ComplexTypeCustomers"
                     WHERE "shippingAddress" = ?
                     """);
             });
@@ -548,7 +548,7 @@ public abstract class ComplexTypeQueryDynamoTest
 
             modelBuilder.Entity<Customer>(entity =>
             {
-                entity.ToDynamoTable("Customers").HasPartitionKey(e => e.Id);
+                entity.ToDynamoTable("ComplexTypeCustomers").HasPartitionKey(e => e.Id);
                 entity.Property(e => e.Id).ValueGeneratedNever();
                 entity.ComplexProperty(
                     e => e.ShippingAddress,
