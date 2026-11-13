@@ -4,6 +4,18 @@
        scripts/write-target-framework-override.sh. Not present during normal development/PR CI. -->
   <Import Project="$(MSBuildThisFileDirectory)TargetFrameworkOverride.props"
           Condition="Exists('$(MSBuildThisFileDirectory)TargetFrameworkOverride.props')" />
+  <!-- The organization-wide reusable PR workflow exports an `outputPath` environment variable for
+       its web-publish step. MSBuild imports environment variables as properties, so it resolves as
+       `OutputPath` and would otherwise force every project targeting the same framework into one
+       shared output directory, overwriting test-host dependencies. Clear only the leaked
+       environment value; an explicit `-p:OutputPath=...` is a global property and cannot be
+       overridden by this project-level assignment. -->
+  <PropertyGroup>
+    <_LeakedOutputPath>$([System.Environment]::GetEnvironmentVariable('outputPath'))</_LeakedOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OutputPath)' != '' and '$(OutputPath)' == '$(_LeakedOutputPath)'">
+    <OutputPath></OutputPath>
+  </PropertyGroup>
   <!-- Single source of truth for the repo's TFM set. Every project shares it identically (the
        repo's established 1:1 config->TFM mapping), so it's centralized here rather than repeated
        in each .csproj. Conditioned on absence so TargetFrameworkOverride.props (imported above)
