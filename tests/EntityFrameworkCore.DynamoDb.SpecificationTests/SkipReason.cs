@@ -19,7 +19,9 @@ public static class SkipReason
         "DynamoDB table keys must be top-level scalar attributes; the provider does not support a partition or sort key nested inside an EF Core complex type.";
 
     public const string ComplexTypeDiscriminatorNullSemanticsNotSupported =
-        "DynamoDB provider does not implement the complex-type discriminator null semantics that materialize a complex type as null when its discriminator value is null.";
+        "DynamoDB provider gap (dynamodb-efcore-provider-ar2.6): a complex type's discriminator "
+        + "value is not used to materialize the complex type as null. This is incomplete provider "
+        + "support, not a DynamoDB platform limitation.";
 
     public const string GuidNewGuidPredicateNotSupported =
         "DynamoDB provider does not translate Guid.NewGuid() in server-side predicates.";

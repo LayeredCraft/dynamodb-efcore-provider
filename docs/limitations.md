@@ -554,6 +554,19 @@ backfilled or mapped with `HasNoDiscriminator()`.
 
 See [Single-Table Design](modeling/single-table-design.md).
 
+### Complex Type Discriminators
+
+A discriminator configured on a complex type
+(`ComplexProperty(...).HasDiscriminator()`) is not persisted by the provider: the discriminator is a
+shadow property with no CLR member, so it is excluded from the nested complex map. The complex
+type's mapped values are still persisted and read normally.
+
+The provider does not implement EF Core's complex-type discriminator null semantics. In particular,
+a null discriminator value does not cause the complex type to materialize as `null`; materialization
+follows the stored complex map (a stored map materializes a complex value, and a stored null map
+materializes `null`). This is an incomplete provider implementation, not a DynamoDB platform
+limitation.
+
 ## Behavioral Differences from Standard EF Core
 
 ### Synchronous execution
