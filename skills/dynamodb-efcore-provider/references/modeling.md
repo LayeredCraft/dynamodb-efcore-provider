@@ -18,6 +18,12 @@ An EF entity is stored as one DynamoDB item; it is not a relational row with joi
 ## Shapes that work well
 
 - Complex properties and supported collections are stored in the same item.
+- Required complex collections must be non-null before `SaveChangesAsync`; initialize them to an
+  empty collection. EF Core 10/11 report a null one with a misleading "belongs to the type"
+  message (dotnet/efcore#38625).
+- A complex-type discriminator is persisted only when mapped to a CLR property
+  (`HasDiscriminator(v => v.Kind)`); a shadow discriminator is not stored, and EF Core's
+  complex-type discriminator null semantics are not implemented.
 - Shared-table designs use compatible keys and provider discriminator behavior. Model the item
   layout, discriminator, and access patterns together.
 - Value converters are useful for scalar representation changes, but can limit query translation.

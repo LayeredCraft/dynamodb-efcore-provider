@@ -7,6 +7,13 @@ to bind publishes fine and throws at first execution:
 `Query wasn't precompiled and dynamic code isn't supported with NativeAOT`. Test the exact deployed
 query shapes; a warning-free trimmed app is not yet guaranteed.
 
+Provider validation runs NativeAOT publish-and-run on `linux-x64` for EF Core 10 and 11; other
+runtime identifiers are not validated. On macOS arm64, publishing an EF Core 11 NativeAOT
+application has been observed to fail inside EF Core 11.0.0's query-precompilation build step,
+before provider code runs; Linux publishing is not affected, and EF Core 10 publishing on macOS
+arm64 is not affected. Until this is resolved, publish EF Core 11 NativeAOT applications on Linux —
+for example in a Linux container or CI runner.
+
 ## Project setup
 
 ```xml
@@ -16,13 +23,16 @@ query shapes; a warning-free trimmed app is not yet guaranteed.
 </PropertyGroup>
 
 <ItemGroup>
-  <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks" Version="10.0.12" PrivateAssets="all" />
-  <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" PrivateAssets="all" />
+  <!-- EF Core 10 (provider 10.x) -->
+  <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks" Version="10.0.14" PrivateAssets="all" />
+  <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14" PrivateAssets="all" />
 </ItemGroup>
+
+<!-- For EF Core 11 (provider 11.x), use Version="11.0.0" for both packages -->
 ```
 
 Publish for a concrete runtime identifier:
-`dotnet publish -c Release -f net10.0 -r linux-x64`.
+`dotnet publish -c Release -f net10.0 -r linux-x64` (or `-f net11.0` for EF Core 11).
 
 - `PublishAot` belongs only in the published startup project; every project that declares a context
   or query needs Tasks, `InterceptorsNamespaces`, and Design. Without the namespace entry the
@@ -30,8 +40,8 @@ Publish for a concrete runtime identifier:
 - `Microsoft.EntityFrameworkCore.Design` must be resolvable in each generating project. EF Core 10's
   Tasks package brings it transitively; EF Core 11's has no dependencies, so reference it explicitly.
 - Version pins must line up: Tasks, Design, EF Core, and the provider release. A mismatch fails
-  generation with `generated an incompatible precompiled-query executor template`. On EF Core 11
-  pin the exact prerelease build.
+  generation with `generated an incompatible precompiled-query executor template`. Pin exact
+  versions; 10.0.x for provider 10.x, 11.0.x for provider 11.x.
 - `PublishAot` alone generates nothing: without Tasks there is no compiled model and no interceptor.
   Generation runs at publish — on EF Core 10 only when `PublishAot` (or `EFOptimizeContext`) is set,
   on EF Core 11 on any publish. To generate during build instead, set `EFScaffoldModelStage` and
@@ -39,7 +49,7 @@ Publish for a concrete runtime identifier:
   `build` is a build error, and `EFOptimizeContext` itself is rejected on EF Core 11. No
   provider-specific MSBuild property exists.
 - Multi-targeted or custom-`Configuration` projects can lose build context inside the generator's
-  inner build; publish a single-targeted project.
+  inner build; publish a single-targeted project (dotnet/efcore#38955, #38951).
 
 ### Context and query in different assemblies
 
@@ -158,7 +168,8 @@ async-only; synchronous operators fail at generation time.
   unaffected (materialization only writes them).
 - Complex properties and complex collections materialize, but under NativeAOT query them with
   `AsNoTracking()`: a tracked query throws
-  `Model building is not supported when publishing with NativeAOT` (dotnet/efcore#37750). On EF Core
+  `Model building is not supported when publishing with NativeAOT` (dotnet/efcore#37750; fixed
+  upstream for EF Core 12). On EF Core
   10, every precompiled no-tracking query over an entity in a normal namespace generates invalid C#,
   so the workaround is a global-namespace entity type — not viable for most apps.
 - Filtering on or projecting complex members is untested and can fail during `dotnet publish`.
