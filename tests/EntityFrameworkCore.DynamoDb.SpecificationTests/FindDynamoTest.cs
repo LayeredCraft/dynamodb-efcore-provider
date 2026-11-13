@@ -579,7 +579,11 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
                                 new Owned2 { Prop = "71" }, new Owned2 { Prop = "72" }
                             ]
                         },
-                    OwnedCollection = [new Owned1 { Prop = 71 }, new Owned1 { Prop = 72 }]
+                    OwnedCollection =
+                    [
+                        new Owned1 { Prop = 71, NestedOwnedCollection = [] },
+                        new Owned1 { Prop = 72, NestedOwnedCollection = [] }
+                    ]
                 },
                 new StringKey { Id = "Cat", Foo = "Alice" },
                 new CompositeKey { Id1 = 77, Id2 = "Dog", Foo = "Olive" },
