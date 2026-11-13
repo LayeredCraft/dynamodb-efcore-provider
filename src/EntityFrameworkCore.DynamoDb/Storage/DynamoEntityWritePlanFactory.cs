@@ -164,7 +164,7 @@ internal sealed class EntityWritePlan(
             var scalarWriters = new List<ComplexScalarWriteAction>();
             foreach (var property in complexType.GetProperties())
             {
-                if (property.IsRuntimeOnly())
+                if (property.IsRuntimeOnly() || property.IsShadowProperty())
                     continue;
 
                 scalarWriters.Add(
