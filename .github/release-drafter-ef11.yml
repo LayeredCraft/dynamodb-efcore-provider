@@ -1,8 +1,5 @@
 tag-template: 'v$RESOLVED_VERSION'
 filter-by-range: '>=11.0.0 <12.0.0'
-# TEMPORARY (remove after v11.0.0 is published): the v11.0.0-preview seed is a GitHub
-# prerelease and is the only EF11 baseline until v11.0.0 ships.
-include-pre-releases: true
 version-template: '11.$MINOR.$PATCH'
 name-template: 'v$RESOLVED_VERSION (EF Core 11)'
 commitish: main
