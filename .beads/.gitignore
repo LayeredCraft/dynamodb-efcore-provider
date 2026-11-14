@@ -71,3 +71,14 @@ bd.db
 # They would override fork protection in .git/info/exclude.
 # Config files (metadata.json, config.yaml) are tracked by git by default
 # since no pattern above ignores them.
+
+# Added by bd (missing required patterns)
+*.gate.lock*
+last_pull
+embeddeddolt/
+proxieddb/
+dolt-server-config.yaml
+proxied_server_client_info.json
+
+# Plugin-generated prime pointer (per-machine, recreated by the beads-superpowers hook)
+PRIME.md
